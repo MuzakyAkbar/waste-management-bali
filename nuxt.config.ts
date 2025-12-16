@@ -7,8 +7,8 @@ export default defineNuxtConfig({
   
   runtimeConfig: {
     public: {
-      supabaseUrl: process.env.SUPABASE_URL,
-      supabaseKey: process.env.SUPABASE_ANON_KEY,
+      supabaseUrl: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
+      supabaseKey: process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY,
     }
   },
 
@@ -37,5 +37,13 @@ export default defineNuxtConfig({
 
   devtools: { enabled: true },
 
-  compatibilityDate: '2024-12-16'
+  compatibilityDate: '2024-12-16',
+
+  // Ensure proper SSR handling
+  ssr: true,
+
+  // Development server config
+  devServer: {
+    port: 3001
+  }
 })
