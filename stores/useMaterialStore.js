@@ -10,12 +10,14 @@ export const useMaterialStore = defineStore('material', {
   actions: {
     async fetchMaterials() {
       this.loading = true
+      this.error = null
+      
       try {
         const supabase = useSupabaseClient()
         
-        console.log('🔍 Fetching materials...')
+        console.log('🔍 Fetching materials from SB_Material...')
         
-        // Join ke SB_Location untuk menampilkan nama lokasi
+        // Query dengan LEFT JOIN ke SB_Location
         const { data, error } = await supabase
           .from('SB_Material')
           .select(`
@@ -30,14 +32,20 @@ export const useMaterialStore = defineStore('material', {
           .order('material_name')
 
         if (error) {
-          console.error('❌ Fetch materials error:', error)
+          console.error('❌ Supabase error:', error)
           throw error
         }
         
-        console.log('✅ Materials fetched:', data)
+        console.log('📦 Raw data from Supabase:', data)
+        
+        if (!data || data.length === 0) {
+          console.warn('⚠️ No materials found in database')
+          this.materials = []
+          return
+        }
         
         // Format data dengan location name
-        this.materials = (data || []).map(m => ({
+        this.materials = data.map(m => ({
           material_id: m.material_id,
           material_name: m.material_name,
           location_id: m.location_id,
@@ -45,9 +53,13 @@ export const useMaterialStore = defineStore('material', {
           created_at: m.created_at
         }))
         
+        console.log('✅ Materials loaded:', this.materials.length)
+        console.log('📋 Materials:', this.materials)
+        
       } catch (err) {
         console.error('❌ Fetch materials error:', err)
         this.error = err.message
+        this.materials = []
       } finally {
         this.loading = false
       }

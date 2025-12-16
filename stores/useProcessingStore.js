@@ -170,71 +170,60 @@ export const useProcessingStore = defineStore('processing', {
 
     // PERBAIKAN: Save Materials dengan nama kolom yang benar
     async saveMaterialsUsed(processingId, materials) {
-      this.loading = true
-      try {
-        const supabase = useSupabaseClient()
+  this.loading = true
+  try {
+    const supabase = useSupabaseClient()
 
-        console.log('💾 Saving materials for process:', processingId, materials)
+    console.log('💾 Saving materials for process:', processingId, materials)
 
-        // 1. Hapus semua material lama untuk ID ini
-        const { error: deleteError } = await supabase
-          .from('SB_Material_Used')
-          .delete()
-          .eq('processing_id', processingId)
-        
-        if (deleteError) {
-          console.error('❌ Delete error:', deleteError)
-          throw deleteError
-        }
+    // 1. Hapus semua material lama untuk ID ini
+    const { error: deleteError } = await supabase
+      .from('SB_Material_Used')
+      .delete()
+      .eq('processing_id', processingId)
+    
+    if (deleteError) throw deleteError
 
-        // 2. Insert data baru (jika ada)
-        if (materials.length > 0) {
-            const payload = materials.map(m => ({
-                processing_id: processingId,
-                material_id: m.material_id,
-                qty: parseFloat(m.qty) // PERBAIKAN: Gunakan 'qty' bukan 'amount_kg'
-            }))
+    // 2. Insert data baru (jika ada)
+    if (materials.length > 0) {
+      const payload = materials.map(m => ({
+        processing_id: processingId,
+        material_id: m.material_id,
+        qty: parseFloat(m.qty)
+      }))
 
-            console.log('📝 Insert payload:', payload)
+      const { error: insertError } = await supabase
+        .from('SB_Material_Used')
+        .insert(payload)
+      
+      if (insertError) throw insertError
+    }
 
-            const { error: insertError } = await supabase
-              .from('SB_Material_Used')
-              .insert(payload)
-            
-            if (insertError) {
-              console.error('❌ Insert error:', insertError)
-              throw insertError
-            }
-        }
+    // 3. Hitung Total
+    const totalInput = materials.reduce((sum, m) => 
+      sum + (parseFloat(m.qty) || 0), 0
+    )
 
-        // 3. Hitung Total Berat
-        const totalInput = materials.reduce((sum, m) => sum + (parseFloat(m.qty) || 0), 0)
+    // 4. Update input_amount_kg di SB_Processing
+    const { error: updateError } = await supabase
+      .from('SB_Processing')
+      .update({ input_amount_kg: totalInput })
+      .eq('processing_id', processingId)
 
-        console.log('📊 Total input calculated:', totalInput)
+    if (updateError) throw updateError
 
-        // 4. Update 'input_amount_kg' di tabel SB_Processing
-        const { error: updateError } = await supabase
-          .from('SB_Processing')
-          .update({ input_amount_kg: totalInput })
-          .eq('processing_id', processingId)
-
-        if (updateError) {
-          console.error('❌ Update error:', updateError)
-          throw updateError
-        }
-
-        // 5. Refresh data di UI
-        await this.fetchProcesses()
-        
-        console.log('✅ Materials saved successfully')
-        return { success: true }
-      } catch (err) {
-        console.error('❌ Save materials error:', err)
-        return { success: false, error: err.message }
-      } finally {
-        this.loading = false
-      }
-    },
+    // 5. Refresh data
+    await this.fetchProcesses()
+    
+    console.log('✅ Materials saved successfully')
+    return { success: true }
+  } catch (err) {
+    console.error('❌ Save materials error:', err)
+    return { success: false, error: err.message }
+  } finally {
+    this.loading = false
+  }
+},
 
     calculateStatistics() {
         const today = new Date().toISOString().split('T')[0]
