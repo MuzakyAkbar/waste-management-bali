@@ -1,14 +1,13 @@
 <template>
-  <div class="min-h-screen flex">
+  <div class="flex h-screen bg-gray-50">
     <LayoutSidebar v-model="isSidebarOpen" />
 
-    <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+    <div class="flex-1 flex flex-col overflow-hidden relative">
       <LayoutNavbar 
-        :show-mobile-menu="true" 
-        @toggle-sidebar="isSidebarOpen = !isSidebarOpen"
+        @toggle-sidebar="toggleSidebar"
       />
 
-      <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+      <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-4 lg:p-6">
         <slot />
       </main>
     </div>
@@ -19,4 +18,8 @@
 import { ref } from 'vue'
 
 const isSidebarOpen = ref(false)
+
+const toggleSidebar = () => {
+  isSidebarOpen.value = !isSidebarOpen.value
+}
 </script>

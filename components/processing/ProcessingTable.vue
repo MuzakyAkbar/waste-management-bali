@@ -1,288 +1,219 @@
 <template>
-  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-    <!-- Loading State -->
-    <div v-if="loading" class="p-8 sm:p-12 text-center">
-      <svg class="animate-spin h-10 w-10 sm:h-12 sm:w-12 text-primary-600 mx-auto mb-4" fill="none" viewBox="0 0 24 24">
-        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-      </svg>
-      <p class="text-sm sm:text-base text-gray-600">Loading data...</p>
-    </div>
-
-    <!-- Empty State -->
-    <div v-else-if="!processes || processes.length === 0" class="p-8 sm:p-12 text-center">
-      <div class="w-16 h-16 sm:w-20 sm:h-20 bg-gray-100 rounded-full mx-auto mb-4 flex items-center justify-center">
-        <svg class="w-8 h-8 sm:w-10 sm:h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-        </svg>
-      </div>
-      <h3 class="text-base sm:text-lg font-semibold text-gray-800 mb-2">No activities yet</h3>
-      <p class="text-sm sm:text-base text-gray-600 mb-6">Start by creating a new processing activity</p>
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full">
+    
+    <div v-if="!loading && processes && processes.length > 0" class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white sticky top-0 z-20">
+      <h3 class="font-bold text-gray-800 text-lg">Activity List</h3>
       <button
         @click="$emit('add-new')"
-        class="btn btn-primary text-sm sm:text-base"
+        class="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 shadow-sm transition-all"
       >
-        <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="w-5 h-5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
         </svg>
         Add Activity
       </button>
     </div>
 
-    <!-- Table (Desktop) -->
-    <div v-else class="hidden lg:block overflow-x-auto">
-      <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50">
-          <tr>
-            <th class="px-4 xl:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-              Date & Time
-            </th>
-            <th class="px-4 xl:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-              Location
-            </th>
-            <th class="px-4 xl:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-              Input (kg)
-            </th>
-            <th class="px-4 xl:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-              Output (kg)
-            </th>
-            <th class="px-4 xl:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-              Status
-            </th>
-            <th class="px-4 xl:px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-              Actions
-            </th>
-          </tr>
-        </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
-          <template v-for="process in processes" :key="process.id">
-            <!-- Main Row -->
-            <tr class="hover:bg-gray-50 transition-colors">
-              <td class="px-4 xl:px-6 py-4 whitespace-nowrap">
-                <div class="text-sm font-medium text-gray-900">
-                  {{ formatDate(process.activity_date) }}
-                </div>
-                <div class="text-xs text-gray-500">
-                  {{ formatTime(process.activity_date) }}
-                </div>
-              </td>
-              <td class="px-4 xl:px-6 py-4">
-                <div class="flex items-center gap-2">
-                  <div class="w-8 h-8 rounded-lg bg-primary-100 flex items-center justify-center flex-shrink-0">
-                    <svg class="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                  </div>
-                  <div class="text-sm text-gray-900 font-medium">
-                    {{ process.location?.name || '-' }}
-                  </div>
-                </div>
-              </td>
-              <td class="px-4 xl:px-6 py-4">
-                <div class="text-sm font-semibold text-gray-900">
-                  {{ formatNumber(process.input_amount) || '-' }}
-                </div>
-              </td>
-              <td class="px-4 xl:px-6 py-4">
-                <div class="text-sm font-semibold" :class="process.status === 'completed' ? 'text-primary-600' : 'text-gray-400'">
-                  {{ process.status === 'completed' ? formatNumber(process.output_amount) : '-' }}
-                </div>
-              </td>
-              <td class="px-4 xl:px-6 py-4">
-                <span v-if="process.status === 'in_progress'" class="badge badge-warning">
-                  <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  In Progress
-                </span>
-                <span v-else-if="process.status === 'completed'" class="badge badge-success">
-                  <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Completed
-                </span>
-              </td>
-              <td class="px-4 xl:px-6 py-4">
-                <div class="flex items-center gap-2">
-                  <button
-                    v-if="process.status === 'in_progress'"
-                    @click="$emit('complete', process)"
-                    class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg transition-all shadow-sm hover:shadow-md"
-                  >
-                    Complete
-                  </button>
-                  <button
-                    v-else
-                    @click="toggleDetails(process.id)"
-                    class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-all"
-                  >
-                    {{ expandedRows.includes(process.id) ? 'Hide' : 'Details' }}
-                  </button>
-                </div>
-              </td>
-            </tr>
-
-            <!-- Expanded Details Row -->
-            <tr v-if="expandedRows.includes(process.id) && process.status === 'completed'" class="bg-gray-50">
-              <td colspan="6" class="px-4 xl:px-6 py-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                  <!-- Completion Info -->
-                  <div class="space-y-2">
-                    <h4 class="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                      <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      Completion Info
-                    </h4>
-                    <div class="text-sm space-y-1">
-                      <p class="text-gray-600">Date: <span class="font-medium text-gray-900">{{ formatDate(process.completed_at) }}</span></p>
-                      <p class="text-gray-600">Time: <span class="font-medium text-gray-900">{{ formatTime(process.completed_at) }}</span></p>
-                    </div>
-                  </div>
-
-                  <!-- Output Info -->
-                  <div class="space-y-2">
-                    <h4 class="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                      <svg class="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
-                      </svg>
-                      Results
-                    </h4>
-                    <div class="text-sm space-y-1">
-                      <p class="text-gray-600">Output: <span class="font-semibold text-primary-600">{{ formatNumber(process.output_amount) }} kg</span></p>
-                      <p class="text-gray-600">Efficiency: <span class="font-medium text-gray-900">{{ calculateEfficiency(process) }}%</span></p>
-                    </div>
-                  </div>
-
-                  <!-- Materials Used -->
-                  <div class="space-y-2">
-                    <h4 class="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                      <svg class="w-4 h-4 text-accent-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                      </svg>
-                      Materials
-                    </h4>
-                    <div v-if="process.materials && process.materials.length > 0" class="space-y-1">
-                      <div v-for="mat in process.materials" :key="mat.id" class="text-sm">
-                        <p class="text-gray-600">{{ mat.material?.name }}: <span class="font-medium text-gray-900">{{ formatNumber(mat.weight_received) }} kg</span></p>
-                      </div>
-                    </div>
-                    <p v-else class="text-sm text-gray-500">No materials</p>
-                  </div>
-
-                  <!-- Notes -->
-                  <div class="space-y-2">
-                    <h4 class="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                      <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-                      </svg>
-                      Notes
-                    </h4>
-                    <p class="text-sm text-gray-600">
-                      {{ process.notes || 'No notes available' }}
-                    </p>
-                  </div>
-                </div>
-              </td>
-            </tr>
-          </template>
-        </tbody>
-      </table>
+    <div v-if="loading" class="p-12 text-center flex-1 flex flex-col justify-center items-center">
+      <svg class="animate-spin h-12 w-12 text-primary-600 mb-4" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+      <p class="text-gray-600 font-medium">Memuat data...</p>
     </div>
 
-    <!-- Cards (Mobile & Tablet) -->
-    <div class="lg:hidden divide-y divide-gray-200">
-      <div
-        v-for="process in processes"
-        :key="process.id"
-        class="p-4 hover:bg-gray-50 transition-colors"
-      >
-        <!-- Card Header -->
-        <div class="flex items-start justify-between mb-3">
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2 mb-2">
-              <div class="w-8 h-8 rounded-lg bg-primary-100 flex items-center justify-center flex-shrink-0">
-                <svg class="w-4 h-4 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              </div>
-              <div class="min-w-0 flex-1">
-                <h3 class="text-sm font-semibold text-gray-900 truncate">
-                  {{ process.location?.name || 'Unknown Location' }}
-                </h3>
-                <p class="text-xs text-gray-500">
-                  {{ formatDate(process.activity_date) }} • {{ formatTime(process.activity_date) }}
-                </p>
-              </div>
-            </div>
-          </div>
-          <span v-if="process.status === 'in_progress'" class="badge badge-warning text-xs flex-shrink-0">
-            In Progress
-          </span>
-          <span v-else class="badge badge-success text-xs flex-shrink-0">
-            Completed
-          </span>
-        </div>
-
-        <!-- Card Body -->
-        <div class="grid grid-cols-2 gap-3 mb-4">
-          <div class="bg-gray-50 rounded-lg p-3">
-            <p class="text-xs text-gray-600 mb-1">Input</p>
-            <p class="text-base font-bold text-gray-900">{{ formatNumber(process.input_amount) }} <span class="text-xs font-normal">kg</span></p>
-          </div>
-          <div class="bg-gray-50 rounded-lg p-3">
-            <p class="text-xs text-gray-600 mb-1">Output</p>
-            <p class="text-base font-bold" :class="process.status === 'completed' ? 'text-primary-600' : 'text-gray-400'">
-              {{ process.status === 'completed' ? formatNumber(process.output_amount) : '-' }} <span class="text-xs font-normal">kg</span>
-            </p>
-          </div>
-        </div>
-
-        <!-- Card Actions -->
-        <div class="flex gap-2">
-          <button
-            v-if="process.status === 'in_progress'"
-            @click="$emit('complete', process)"
-            class="flex-1 btn btn-primary text-sm py-2"
-          >
-            Complete Activity
-          </button>
-          <button
-            v-else
-            @click="toggleDetails(process.id)"
-            class="flex-1 btn btn-secondary text-sm py-2"
-          >
-            {{ expandedRows.includes(process.id) ? 'Hide Details' : 'View Details' }}
-          </button>
-        </div>
-
-        <!-- Expanded Mobile Details -->
-        <Transition name="expand">
-          <div v-if="expandedRows.includes(process.id) && process.status === 'completed'" class="mt-4 pt-4 border-t border-gray-200 space-y-3">
-            <div class="bg-gray-50 rounded-lg p-3">
-              <h4 class="text-xs font-semibold text-gray-700 mb-2">Completion Info</h4>
-              <p class="text-xs text-gray-600">Date: <span class="font-medium text-gray-900">{{ formatDate(process.completed_at) }}</span></p>
-              <p class="text-xs text-gray-600">Efficiency: <span class="font-medium text-gray-900">{{ calculateEfficiency(process) }}%</span></p>
-            </div>
-
-            <div v-if="process.materials && process.materials.length > 0" class="bg-gray-50 rounded-lg p-3">
-              <h4 class="text-xs font-semibold text-gray-700 mb-2">Materials Used</h4>
-              <div class="space-y-1">
-                <p v-for="mat in process.materials" :key="mat.id" class="text-xs text-gray-600">
-                  {{ mat.material?.name }}: <span class="font-medium text-gray-900">{{ formatNumber(mat.weight_received) }} kg</span>
-                </p>
-              </div>
-            </div>
-
-            <div v-if="process.notes" class="bg-gray-50 rounded-lg p-3">
-              <h4 class="text-xs font-semibold text-gray-700 mb-2">Notes</h4>
-              <p class="text-xs text-gray-600">{{ process.notes }}</p>
-            </div>
-          </div>
-        </Transition>
+    <div v-else-if="!processes || processes.length === 0" class="p-12 text-center flex-1 flex flex-col justify-center items-center">
+      <div class="w-20 h-20 bg-gray-50 rounded-full mb-4 flex items-center justify-center">
+        <svg class="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        </svg>
       </div>
+      <h3 class="text-lg font-semibold text-gray-800 mb-2">Belum ada aktivitas</h3>
+      <p class="text-gray-500 mb-6 max-w-sm mx-auto">Mulai dengan mencatat aktivitas pengolahan sampah baru.</p>
+      <button
+        @click="$emit('add-new')"
+        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-primary-600 hover:bg-primary-700 shadow-sm transition-all"
+      >
+        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+        Buat Aktivitas Baru
+      </button>
+    </div>
+
+    <div v-else class="flex-1 bg-gray-50/50">
+      
+      <div class="hidden lg:block overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Date & Time</th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Input (kg)</th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Output (kg)</th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+              <th scope="col" class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            <template v-for="process in processes" :key="process.id">
+              <tr class="hover:bg-gray-50 transition-colors group">
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="flex flex-col">
+                    <span class="text-sm font-semibold text-gray-900">{{ formatDate(process.activity_date) }}</span>
+                    <span class="text-xs text-gray-500">{{ formatTime(process.activity_date) }}</span>
+                  </div>
+                </td>
+
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm font-medium text-gray-900">{{ formatNumber(process.input_amount) }}</div>
+                </td>
+
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm font-medium" :class="process.status === 'completed' ? 'text-primary-600' : 'text-gray-400'">
+                    {{ process.status === 'completed' ? formatNumber(process.output_amount) : '-' }}
+                  </div>
+                </td>
+
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <span v-if="process.status === 'in_progress'" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                    In Progress
+                  </span>
+                  <span v-else class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    Completed
+                  </span>
+                </td>
+
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <div class="flex items-center justify-end gap-2">
+                    <button
+                      v-if="process.status === 'in_progress'"
+                      @click="$emit('manage-materials', process.id)"
+                      class="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-md transition text-xs font-semibold"
+                      title="Manage Materials"
+                    >
+                      + Materials
+                    </button>
+
+                    <button
+                      v-if="process.status === 'in_progress'"
+                      @click="$emit('complete', process)"
+                      class="text-white bg-primary-600 hover:bg-primary-700 px-3 py-1.5 rounded-md transition text-xs font-semibold shadow-sm"
+                    >
+                      Complete
+                    </button>
+                    
+                    <button
+                      v-else
+                      @click="toggleDetails(process.id)"
+                      class="text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-md transition text-xs font-semibold"
+                    >
+                      {{ expandedRows.includes(process.id) ? 'Hide' : 'Details' }}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+
+              <tr v-if="expandedRows.includes(process.id) && process.status === 'completed'" class="bg-gray-50/50">
+                <td colspan="5" class="px-6 py-4">
+                  <div class="bg-white border border-gray-200 rounded-lg p-4 grid grid-cols-3 gap-4 shadow-sm">
+                    <div>
+                      <span class="text-xs text-gray-500 uppercase font-bold">KWh Used</span>
+                      <p class="text-sm font-medium text-gray-900 mt-1">
+                        {{ (process.kwh_end - process.kwh_start).toFixed(1) }} kWh 
+                        <span class="text-gray-400 text-xs">({{ process.kwh_start }} - {{ process.kwh_end }})</span>
+                      </p>
+                    </div>
+                    <div>
+                      <span class="text-xs text-gray-500 uppercase font-bold">Efficiency</span>
+                      <p class="text-sm font-medium text-gray-900 mt-1">{{ calculateEfficiency(process) }}%</p>
+                    </div>
+                    <div>
+                      <span class="text-xs text-gray-500 uppercase font-bold">Completion Time</span>
+                      <p class="text-sm font-medium text-gray-900 mt-1">{{ formatDate(process.completed_at) }} {{ formatTime(process.completed_at) }}</p>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="lg:hidden space-y-4 p-4">
+        <div v-for="process in processes" :key="process.id" class="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+          
+          <div class="p-4 border-b border-gray-100 flex justify-between items-start bg-gray-50/30">
+            <div>
+              <p class="text-sm font-bold text-gray-900">{{ formatDate(process.activity_date) }}</p>
+              <p class="text-xs text-gray-500">{{ formatTime(process.activity_date) }}</p>
+            </div>
+            <span 
+              class="px-2 py-1 text-xs font-semibold rounded-full"
+              :class="process.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'"
+            >
+              {{ process.status === 'in_progress' ? 'In Progress' : 'Completed' }}
+            </span>
+          </div>
+
+          <div class="p-4 grid grid-cols-2 gap-4">
+            <div>
+              <p class="text-xs text-gray-500 mb-1">Input</p>
+              <p class="text-lg font-bold text-gray-800">{{ formatNumber(process.input_amount) }} <span class="text-xs font-normal text-gray-500">kg</span></p>
+            </div>
+            <div>
+              <p class="text-xs text-gray-500 mb-1">Output</p>
+              <p class="text-lg font-bold" :class="process.status === 'completed' ? 'text-primary-600' : 'text-gray-400'">
+                {{ process.status === 'completed' ? formatNumber(process.output_amount) : '-' }} <span class="text-xs font-normal text-gray-500">kg</span>
+              </p>
+            </div>
+          </div>
+
+          <div class="p-3 bg-gray-50 flex gap-2">
+            <template v-if="process.status === 'in_progress'">
+              <button
+                @click="$emit('manage-materials', process.id)"
+                class="flex-1 py-2 px-3 bg-white border border-blue-200 text-blue-600 text-sm font-semibold rounded-lg shadow-sm hover:bg-blue-50 transition"
+              >
+                + Materials
+              </button>
+              <button
+                @click="$emit('complete', process)"
+                class="flex-1 py-2 px-3 bg-primary-600 text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-primary-700 transition"
+              >
+                Complete
+              </button>
+            </template>
+
+            <template v-else>
+              <button
+                @click="toggleDetails(process.id)"
+                class="w-full py-2 px-3 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition"
+              >
+                {{ expandedRows.includes(process.id) ? 'Hide Details' : 'View Details' }}
+              </button>
+            </template>
+          </div>
+
+          <div v-if="expandedRows.includes(process.id) && process.status === 'completed'" class="p-4 bg-gray-50 border-t border-gray-200 text-sm">
+            <div class="space-y-2">
+              <div class="flex justify-between">
+                <span class="text-gray-500">KWh Used:</span>
+                <span class="font-medium">{{ (process.kwh_end - process.kwh_start).toFixed(1) }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-500">Efficiency:</span>
+                <span class="font-medium">{{ calculateEfficiency(process) }}%</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-500">Completed:</span>
+                <span class="font-medium">{{ formatDate(process.completed_at) }}</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
     </div>
   </div>
 </template>
@@ -301,7 +232,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['complete', 'add-new'])
+const emit = defineEmits(['complete', 'add-new', 'manage-materials'])
 
 const expandedRows = ref([])
 
@@ -332,32 +263,12 @@ const formatTime = (datetime) => {
 }
 
 const formatNumber = (num) => {
-  if (!num) return '0'
+  if (num === undefined || num === null) return '0'
   return parseFloat(num).toFixed(2)
 }
 
 const calculateEfficiency = (process) => {
-  if (!process.input_amount || !process.output_amount) return '0.0'
+  if (!process.input_amount || !process.output_amount || process.input_amount == 0) return '0.0'
   return ((process.output_amount / process.input_amount) * 100).toFixed(1)
 }
 </script>
-
-<style scoped>
-.expand-enter-active,
-.expand-leave-active {
-  transition: all 0.3s ease;
-  overflow: hidden;
-}
-
-.expand-enter-from,
-.expand-leave-to {
-  opacity: 0;
-  max-height: 0;
-}
-
-.expand-enter-to,
-.expand-leave-from {
-  opacity: 1;
-  max-height: 500px;
-}
-</style>

@@ -1,284 +1,125 @@
 <template>
-  <Teleport to="body">
-    <Transition name="modal">
-      <div v-if="show" class="fixed inset-0 z-50 overflow-y-auto">
-        <!-- Backdrop -->
-        <div class="fixed inset-0 bg-black bg-opacity-50 transition-opacity" @click="closeModal"></div>
+  <div class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+      
+      <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" @click="!loading && $emit('close')"></div>
+      <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
-        <!-- Modal -->
-        <div class="flex min-h-full items-center justify-center p-4">
-          <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl transform transition-all">
-            <!-- Header -->
-            <div class="border-b border-gray-200 px-6 py-4">
-              <div class="flex items-center justify-between">
-                <h3 class="text-xl font-bold text-gray-900">Add New Activity</h3>
-                <button
-                  @click="closeModal"
-                  class="text-gray-400 hover:text-gray-600 transition"
-                >
-                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            <!-- Body -->
-            <div class="px-6 py-6 space-y-6">
-              <!-- Error Message -->
-              <div v-if="error" class="p-4 bg-red-50 border border-red-200 rounded-lg">
-                <p class="text-sm text-red-600">{{ error }}</p>
-              </div>
-
-              <!-- Location -->
-              <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-2">Lokasi *</label>
-                <select
-                  v-model="formData.location_id"
-                  required
-                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition"
-                >
-                  <option value="">Pilih Lokasi</option>
-                  <option v-for="loc in locationStore.locations" :key="loc.location_id" :value="loc.location_id">
-                    {{ loc.location_name }}
-                  </option>
-                </select>
-              </div>
-
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Start Date -->
+      <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+        <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+          <div class="sm:flex sm:items-start">
+            <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+              <h3 class="text-lg leading-6 font-bold text-gray-900" id="modal-title">
+                New Processing Activity
+              </h3>
+              
+              <div class="mt-6 space-y-5">
                 <div>
-                  <label class="block text-sm font-semibold text-gray-700 mb-2">Tanggal Mulai *</label>
-                  <input
-                    v-model="formData.start_date"
-                    type="date"
-                    required
-                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition"
-                  />
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">Start Date & Time</label>
+                  <input type="datetime-local" v-model="form.activity_date" class="block w-full border-gray-300 rounded-lg shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm p-2.5 border" />
                 </div>
 
-                <!-- Start Time -->
                 <div>
-                  <label class="block text-sm font-semibold text-gray-700 mb-2">Jam Mulai *</label>
-                  <input
-                    v-model="formData.start_time"
-                    type="time"
-                    required
-                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition"
-                  />
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">Electricity Meter (Start KWh)</label>
+                  <input type="number" step="0.1" v-model="form.kwh_start" class="block w-full border-gray-300 rounded-lg shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm p-2.5 border" placeholder="0.0" />
+                </div>
+
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">Activity / Meter Photo (Start)</label>
+                  <ImageUpload :max-images="1" label="Upload Foto KWh Awal" @images-changed="handleImageChanged" />
+                  <p v-if="uploadError" class="mt-1 text-xs text-red-600">{{ uploadError }}</p>
                 </div>
               </div>
-
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- KWH Start -->
-                <div>
-                  <label class="block text-sm font-semibold text-gray-700 mb-2">KWH Awal *</label>
-                  <input
-                    v-model.number="formData.kwh_start"
-                    type="number"
-                    step="0.01"
-                    required
-                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition"
-                    placeholder="0.00"
-                  />
-                </div>
-
-                <!-- Input Amount -->
-                <div>
-                  <label class="block text-sm font-semibold text-gray-700 mb-2">Jumlah Input (kg) *</label>
-                  <input
-                    v-model.number="formData.input_amount_kg"
-                    type="number"
-                    step="0.01"
-                    required
-                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition"
-                    placeholder="0.00"
-                  />
-                </div>
-              </div>
-
-              <!-- KWH Start Image -->
-              <div>
-                <label class="block text-sm font-semibold text-gray-700 mb-2">Foto KWH Awal *</label>
-                <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-primary transition">
-                  <input
-                    ref="kwhStartImageInput"
-                    type="file"
-                    accept="image/*"
-                    @change="handleKwhStartImage"
-                    class="hidden"
-                  />
-                  <button
-                    type="button"
-                    @click="$refs.kwhStartImageInput.click()"
-                    class="w-full flex flex-col items-center justify-center py-4 text-gray-600 hover:text-primary transition"
-                  >
-                    <svg v-if="!kwhStartImagePreview" class="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <img v-else :src="kwhStartImagePreview" class="max-h-40 rounded-lg mb-2" />
-                    <span class="text-sm font-medium">
-                      {{ kwhStartImagePreview ? 'Change Image' : 'Upload Image' }}
-                    </span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- Footer -->
-            <div class="border-t border-gray-200 px-6 py-4 flex justify-end space-x-3">
-              <button
-                @click="closeModal"
-                type="button"
-                class="px-6 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition"
-              >
-                Cancel
-              </button>
-              <button
-                @click="handleSubmit"
-                :disabled="loading"
-                class="px-6 py-2.5 bg-primary hover:bg-primary/90 text-white font-semibold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-              >
-                <svg v-if="loading" class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span>{{ loading ? 'Saving...' : 'Save Activity' }}</span>
-              </button>
             </div>
           </div>
         </div>
+        
+        <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+          <button type="button" class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-primary-600 text-base font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed items-center" :disabled="loading" @click="handleSubmit">
+            <svg v-if="loading" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            {{ loading ? 'Saving...' : 'Create Activity' }}
+          </button>
+          <button type="button" class="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm" @click="$emit('close')" :disabled="loading">
+            Cancel
+          </button>
+        </div>
       </div>
-    </Transition>
-  </Teleport>
+    </div>
+  </div>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 import { useAuthStore } from '~/stores/useAuthStore'
-import { useProcessingStore } from '~/stores/useProcessingStore'
-import { useLocationStore } from '~/stores/useMaterialStore'
+import ImageUpload from '~/components/common/ImageUpload.vue'
 
-const props = defineProps({
-  show: Boolean
-})
-
-const emit = defineEmits(['close', 'success'])
-
+const emit = defineEmits(['close', 'save'])
 const authStore = useAuthStore()
-const processingStore = useProcessingStore()
-const locationStore = useLocationStore()
 
 const loading = ref(false)
-const error = ref(null)
+const selectedFile = ref(null)
+const uploadError = ref(null)
 
-const formData = ref({
-  location_id: '',
-  start_date: '',
-  start_time: '',
-  kwh_start: 0,
-  input_amount_kg: 0,
+const form = ref({
+  activity_date: new Date().toISOString().slice(0, 16),
+  kwh_start: ''
 })
 
-const kwhStartImageFile = ref(null)
-const kwhStartImagePreview = ref(null)
-
-// Set default date and time
-watch(() => props.show, (newVal) => {
-  if (newVal) {
-    const now = new Date()
-    formData.value.start_date = now.toISOString().split('T')[0]
-    formData.value.start_time = now.toTimeString().slice(0, 5)
-  }
-})
-
-const handleKwhStartImage = (event) => {
-  const file = event.target.files[0]
-  if (file) {
-    kwhStartImageFile.value = file
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      kwhStartImagePreview.value = e.target.result
-    }
-    reader.readAsDataURL(file)
+const handleImageChanged = (images) => {
+  if (images && images.length > 0) {
+    selectedFile.value = images[0].file 
+    uploadError.value = null
+  } else {
+    selectedFile.value = null
   }
 }
 
 const handleSubmit = async () => {
-  error.value = null
-
-  if (!formData.value.location_id || !formData.value.start_date || !formData.value.start_time || !kwhStartImageFile.value) {
-    error.value = 'Semua field wajib diisi'
+  // 1. Validasi Gambar
+  if (!selectedFile.value) {
+    uploadError.value = 'Mohon upload foto bukti aktivitas/meteran.'
     return
   }
 
   loading.value = true
-
-  try {
-    // Upload image first
-    const uploadResult = await processingStore.uploadImage(kwhStartImageFile.value, 'kwh_start_images')
-    
-    if (!uploadResult.success) {
-      throw new Error('Failed to upload image')
+  
+  // 2. AMBIL USER ID DENGAN AMAN
+  // Cek berbagai kemungkinan struktur object user dari Supabase/Pinia
+  let userId = null
+  
+  if (authStore.user) {
+    // Jika user adalah object, cek properti id atau user_id
+    userId = authStore.user.id || authStore.user.user_id 
+  } else {
+    // Jika user null, coba cek local storage sebagai fallback terakhir
+    // (Hanya jika Anda menyimpan user di localStorage)
+    try {
+      const storedUser = JSON.parse(localStorage.getItem('user'))
+      if (storedUser) userId = storedUser.id || storedUser.user_id
+    } catch (e) {
+      console.error('Failed to parse user from storage', e)
     }
-
-    // Create processing record
-    const startDatetime = `${formData.value.start_date}T${formData.value.start_time}:00`
-    
-    const processData = {
-      created_by: authStore.userId,
-      location_id: formData.value.location_id,
-      start_datetime: startDatetime,
-      kwh_start: formData.value.kwh_start,
-      input_amount_kg: formData.value.input_amount_kg,
-      kwh_start_img_path: uploadResult.path,
-      kwh_start_bucket_id: uploadResult.bucket,
-    }
-
-    const result = await processingStore.createProcess(processData)
-
-    if (result.success) {
-      emit('success')
-      resetForm()
-    } else {
-      error.value = result.error
-    }
-  } catch (err) {
-    error.value = err.message || 'Terjadi kesalahan'
-  } finally {
+  }
+  
+  // 3. Validasi User ID
+  if (!userId) {
+    alert('Sesi Anda telah berakhir atau data user tidak ditemukan. Silakan login ulang.')
     loading.value = false
+    return // Stop di sini, jangan lanjut kirim event
   }
-}
 
-const resetForm = () => {
-  formData.value = {
-    location_id: '',
-    start_date: '',
-    start_time: '',
-    kwh_start: 0,
-    input_amount_kg: 0,
-  }
-  kwhStartImageFile.value = null
-  kwhStartImagePreview.value = null
-  error.value = null
-}
-
-const closeModal = () => {
-  if (!loading.value) {
-    resetForm()
-    emit('close')
-  }
+  // 4. Kirim Data
+  emit('save', {
+    activity_date: new Date(form.value.activity_date).toISOString(),
+    kwh_start: parseFloat(form.value.kwh_start) || 0,
+    imageFile: selectedFile.value,
+    created_by: userId // Pastikan ini string UUID yang valid
+  })
+  
+  // Safety timeout
+  setTimeout(() => { loading.value = false }, 5000) 
 }
 </script>
-
-<style scoped>
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
-</style>
