@@ -130,15 +130,6 @@
             </span>
           </button>
         </form>
-
-        <!-- Demo Credentials -->
-        <div class="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-          <p class="text-xs sm:text-sm text-gray-600 font-medium mb-2">Demo Credentials:</p>
-          <div class="text-xs sm:text-sm text-gray-500 space-y-1">
-            <p>📧 Email: <span class="font-mono text-gray-700">admin@wastemanagement.com</span></p>
-            <p>🔑 Password: <span class="font-mono text-gray-700">admin123</span></p>
-          </div>
-        </div>
       </div>
 
       <!-- Footer -->

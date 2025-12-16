@@ -25,7 +25,7 @@ export const useAuthStore = defineStore('auth', {
 
         // Query user from database
         const { data: users, error: queryError } = await supabase
-          .from('users')
+          .from('user')
           .select('*')
           .eq('email', email)
           .eq('password', password)
