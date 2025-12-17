@@ -21,7 +21,7 @@
             <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ mat.material_name }}</td>
             <td class="px-6 py-4 text-sm text-gray-500">
               <span class="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded-full">
-                {{ mat.location?.name || 'Unknown' }}
+                {{ getLocationName(mat.location_id) }}
               </span>
             </td>
             <td class="px-6 py-4 text-right">
@@ -45,7 +45,7 @@
             <select v-model="form.location_id" class="w-full border rounded-lg p-2 bg-white">
               <option :value="null" disabled>Select Location</option>
               <option v-for="loc in locationStore.locations" :key="loc.location_id" :value="loc.location_id">
-                {{ loc.name }}
+                {{ loc.location_name || loc.name }}
               </option>
             </select>
           </div>
@@ -79,10 +79,28 @@ const showModal = ref(false)
 const loading = ref(false)
 const form = ref({ material_name: '', location_id: null })
 
-onMounted(() => {
-  materialStore.fetchMaterials()
-  locationStore.fetchLocations() // Fetch location untuk dropdown
+onMounted(async () => {
+  // Gunakan await atau Promise.all agar data lebih sinkron, meski tidak wajib
+  await Promise.all([
+    materialStore.fetchMaterials(),
+    locationStore.fetchLocations()
+  ])
 })
+
+// PERBAIKAN: Fungsi Helper untuk mendapatkan nama lokasi berdasarkan ID
+const getLocationName = (locationId) => {
+  if (!locationId) return 'Unknown'
+  
+  // Mencari object location yang ID-nya cocok
+  const location = locationStore.locations.find(l => l.location_id === locationId)
+  
+  // Mengembalikan nama (cek properti 'location_name' dari SQL atau 'name' dari store)
+  if (location) {
+    return location.location_name || location.name || 'Unknown'
+  }
+  
+  return 'Unknown'
+}
 
 const handleSubmit = async () => {
   if (!form.value.material_name || !form.value.location_id) {

@@ -98,46 +98,68 @@
       <Transition name="modal">
         <div
           v-if="showSelectionModal"
-          class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4"
+          class="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           @click.self="showSelectionModal = false"
         >
-          <div class="bg-white rounded-xl max-w-sm w-full overflow-hidden shadow-2xl">
+          <div class="bg-white rounded-2xl max-w-sm w-full overflow-hidden shadow-2xl transform transition-all scale-100">
+            <div class="bg-gray-50 px-5 py-4 border-b border-gray-100 flex justify-between items-center">
+              <h3 class="text-lg font-bold text-gray-800">Upload Foto</h3>
+              <button @click="showSelectionModal = false" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
             <div class="p-5">
-              <h3 class="text-xl font-bold text-gray-900 mb-1">Pilih Sumber Foto</h3>
-              <p class="text-sm text-gray-500 mb-6">Ambil foto dengan kamera atau pilih dari galeri</p>
+              <p class="text-sm text-gray-500 mb-6 text-center">
+                Pilih metode pengambilan gambar untuk dokumentasi.
+              </p>
               
-              <div class="space-y-4">
+              <div class="space-y-3">
                 <button
                   type="button"
                   @click="openCustomCamera"
-                  class="w-full flex items-center justify-center gap-3 bg-primary hover:bg-primary/90 text-white font-semibold py-3 rounded-lg transition shadow-md"
+                  class="w-full group flex items-center justify-between px-4 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
                 >
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <div class="flex items-center gap-4">
+                    <div class="p-2 bg-white/20 rounded-lg group-hover:bg-white/30 transition">
+                      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    </div>
+                    <div class="text-left">
+                      <span class="block font-bold text-base">Buka Kamera</span>
+                      <span class="block text-xs text-emerald-100">Ambil foto langsung</span>
+                    </div>
+                  </div>
+                  <svg class="w-5 h-5 text-emerald-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                   </svg>
-                  Ambil Foto (Kamera)
                 </button>
                 
                 <button
                   type="button"
                   @click="triggerGallery"
-                  class="w-full flex items-center justify-center gap-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 rounded-lg border border-gray-300 transition"
+                  class="w-full group flex items-center justify-between px-4 py-4 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-xl transition-all shadow-sm hover:border-emerald-300"
                 >
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  <div class="flex items-center gap-4">
+                     <div class="p-2 bg-gray-100 rounded-lg group-hover:bg-emerald-50 group-hover:text-emerald-600 transition">
+                      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <div class="text-left">
+                      <span class="block font-bold text-base">Pilih Galeri</span>
+                      <span class="block text-xs text-gray-500">Ambil dari penyimpanan</span>
+                    </div>
+                  </div>
+                  <svg class="w-5 h-5 text-gray-300 group-hover:text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                   </svg>
-                  Pilih dari Galeri
                 </button>
               </div>
-              
-              <button
-                type="button"
-                @click="showSelectionModal = false"
-                class="w-full mt-4 text-sm text-gray-500 hover:text-gray-700 py-2 transition"
-              >
-                Batal
-              </button>
             </div>
           </div>
         </div>
