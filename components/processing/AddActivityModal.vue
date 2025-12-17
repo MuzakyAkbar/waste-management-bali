@@ -1,5 +1,6 @@
 <template>
-  <div class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+  <!-- ✅ TAMBAHKAN v-if untuk control visibility -->
+  <div v-if="show" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
     <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
       
       <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" @click="!loading && $emit('close')"></div>
@@ -12,6 +13,8 @@
               <h3 class="text-lg leading-6 font-bold text-gray-900" id="modal-title">
                 New Processing Activity
               </h3>
+              
+              <div v-if="error" class="mt-3 p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-200">{{ error }}</div>
               
               <div class="mt-6 space-y-5">
                 <div>
@@ -41,7 +44,6 @@
                     label="Upload Foto KWh Awal" 
                     @images-changed="handleImageChanged" 
                   />
-                  <p v-if="uploadError" class="mt-1 text-xs text-red-600">{{ uploadError }}</p>
                 </div>
               </div>
             </div>
@@ -76,90 +78,167 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useAuthStore } from '~/stores/useAuthStore'
+import { useProcessingStore } from '~/stores/useProcessingStore'
 import ImageUpload from '~/components/common/ImageUpload.vue'
+
+// ✅ TAMBAHKAN prop show
+const props = defineProps({
+  show: Boolean
+})
 
 const emit = defineEmits(['close', 'save'])
 const authStore = useAuthStore()
+const processingStore = useProcessingStore()
 
 const loading = ref(false)
-const selectedFile = ref(null)
-const uploadError = ref(null)
+const error = ref(null)
+const startImageFile = ref(null)
 
 const form = ref({
   activity_date: new Date().toISOString().slice(0, 16),
   kwh_start: ''
 })
 
+// ✅ RESET form saat modal dibuka/ditutup
+watch(() => props.show, (newVal) => {
+  if (newVal) {
+    // Modal dibuka - reset form
+    form.value = {
+      activity_date: new Date().toISOString().slice(0, 16),
+      kwh_start: ''
+    }
+    startImageFile.value = null
+    error.value = null
+    loading.value = false
+    
+    console.log('📝 Form reset untuk modal baru')
+  }
+})
+
 const handleImageChanged = (images) => {
   if (images && images.length > 0) {
-    selectedFile.value = images[0].file 
-    uploadError.value = null
+    startImageFile.value = images[0].file 
+    error.value = null
   } else {
-    selectedFile.value = null
+    startImageFile.value = null
   }
+  console.log('📸 Start image:', startImageFile.value?.name)
 }
 
 const handleSubmit = async () => {
-  // 1. Validasi Gambar
-  if (!selectedFile.value) {
-    uploadError.value = 'Mohon upload foto bukti aktivitas/meteran.'
-    return
-  }
-
-  // 2. Validasi KWh Start
+  error.value = null
+  
+  // Validation
   if (!form.value.kwh_start || parseFloat(form.value.kwh_start) <= 0) {
-    uploadError.value = 'Mohon isi nilai KWh Start yang valid.'
-    return
+    return error.value = 'Mohon isi nilai KWh Start yang valid.'
+  }
+  if (!startImageFile.value) {
+    return error.value = 'Upload minimal 1 foto meteran awal.'
   }
 
   loading.value = true
-  
-  // 3. AMBIL USER ID DENGAN AMAN
-  let userId = null
-  
-  if (authStore.user) {
-    // Cek properti user_id atau id
-    userId = authStore.user.user_id || authStore.user.id
-  } else {
-    // Fallback ke localStorage jika state kosong
-    try {
-      const storedUser = JSON.parse(localStorage.getItem('user'))
-      if (storedUser) userId = storedUser.user_id || storedUser.id
-    } catch (e) {
-      console.error('❌ Failed to parse user from storage', e)
+
+  try {
+    // 1. AMBIL USER ID
+    let userId = null
+    
+    if (authStore.user) {
+      userId = authStore.user.user_id || authStore.user.id
+    } else {
+      try {
+        const storedUser = JSON.parse(localStorage.getItem('user'))
+        if (storedUser) userId = storedUser.user_id || storedUser.id
+      } catch (e) {
+        console.error('❌ Failed to parse user from storage', e)
+      }
     }
-  }
-  
-  // 4. Validasi User ID
-  if (!userId) {
-    alert('⚠️ Sesi Anda telah berakhir atau data user tidak ditemukan. Silakan login ulang.')
+    
+    if (!userId) {
+      throw new Error('Sesi Anda telah berakhir. Silakan login ulang.')
+    }
+
+    console.log('✅ User ID found:', userId)
+
+    const supabase = useSupabaseClient()
+
+    // 2. CREATE PROCESS RECORD DULU (dapat processing_id)
+    const createData = {
+      created_by: userId,
+      start_datetime: new Date(form.value.activity_date).toISOString(),
+      kwh_start: parseFloat(form.value.kwh_start),
+      input_amount_kg: 0,
+      kwh_start_images: []
+    }
+
+    console.log('💾 Creating process record:', createData)
+    
+    const { data: newProcess, error: createError } = await supabase
+      .from('SB_Processing')
+      .insert([createData])
+      .select()
+      .single()
+    
+    if (createError) {
+      console.error('❌ Create error:', createError)
+      throw new Error(createError.message || 'Gagal membuat aktivitas')
+    }
+
+    const processId = newProcess.processing_id
+    console.log('✅ Process created with ID:', processId)
+
+    // 3. UPLOAD IMAGE
+    console.log('📸 Uploading image to folder:', processId)
+    const uploadRes = await processingStore.uploadImage(
+      startImageFile.value,
+      'kwh-start-images',
+      processId
+    )
+
+    if (!uploadRes.success) {
+      throw new Error('Gagal upload gambar: ' + uploadRes.error)
+    }
+
+    console.log('✅ Image uploaded:', uploadRes.url)
+
+    // 4. UPDATE PROCESS DENGAN IMAGE DATA
+    const kwhStartImagesArray = [{
+      url: uploadRes.url,
+      path: uploadRes.path,
+      bucket: uploadRes.bucket
+    }]
+
+    const updatePayload = {
+      kwh_start_images: kwhStartImagesArray
+    }
+
+    console.log('💾 Updating with image data:', updatePayload)
+
+    const { error: updateError } = await supabase
+      .from('SB_Processing')
+      .update(updatePayload)
+      .eq('processing_id', processId)
+
+    if (updateError) {
+      console.error('❌ Update error:', updateError)
+      throw new Error('Gagal update image data')
+    }
+
+    console.log('✅ Process updated with image')
+
+    // 5. REFRESH DATA dan CLOSE
+    await processingStore.fetchProcesses(true) // Force refresh
+    
+    emit('save')
+    emit('close')
+
+  } catch (err) {
+    console.error('❌ Error:', err)
+    error.value = err.message || 'Terjadi kesalahan'
+  } finally {
     loading.value = false
-    return
   }
-
-  console.log('✅ User ID found:', userId)
-  console.log('📤 Submitting with data:', {
-    activity_date: form.value.activity_date,
-    kwh_start: form.value.kwh_start,
-    imageFile: selectedFile.value.name,
-    created_by: userId
-  })
-
-  // 5. Kirim Data
-  // Store akan handle upload ke bucket 'kwh-start-images' dengan folder userId atau 'temp'
-  emit('save', {
-    activity_date: new Date(form.value.activity_date).toISOString(),
-    kwh_start: parseFloat(form.value.kwh_start) || 0,
-    imageFile: selectedFile.value,
-    created_by: userId
-  })
-  
-  // Safety timeout untuk reset loading jika ada masalah
-  setTimeout(() => { 
-    loading.value = false 
-  }, 5000) 
 }
 </script>
 

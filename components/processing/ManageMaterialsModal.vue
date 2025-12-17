@@ -1,11 +1,24 @@
 <template>
-  <div v-if="show" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+  <!-- ✅ PERBAIKAN: Tambahkan touch-action untuk mobile -->
+  <div v-if="show" class="fixed inset-0 z-50 overflow-y-auto touch-none" aria-labelledby="modal-title" role="dialog" aria-modal="true" @touchmove.prevent>
     <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
       
-      <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" @click="!loading && closeModal()"></div>
+      <!-- ✅ PERBAIKAN: Fixed overlay untuk mobile -->
+      <div 
+        class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity touch-none" 
+        aria-hidden="true" 
+        @click.stop="!loading && closeModal()"
+        @touchend.stop="!loading && closeModal()"
+      ></div>
       <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
-      <div class="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
+      <!-- Modal panel -->
+      <!-- ✅ PERBAIKAN: Prevent click propagation di mobile -->
+      <div 
+        class="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full"
+        @click.stop
+        @touchend.stop
+      >
         
         <!-- Header -->
         <div class="bg-white px-4 pt-5 pb-4 sm:p-6 border-b border-gray-200">
@@ -31,13 +44,28 @@
             <p class="text-gray-500 text-sm">Memuat data material...</p>
           </div>
 
+          <!-- Error State -->
+          <div v-else-if="errorMessage" class="text-center py-8">
+            <svg class="w-12 h-12 text-red-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p class="text-gray-700 font-medium mb-2">Gagal memuat data</p>
+            <p class="text-gray-500 text-sm mb-4">{{ errorMessage }}</p>
+            <button 
+              @click="retryFetch" 
+              class="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 font-medium"
+            >
+              🔄 Coba Lagi
+            </button>
+          </div>
+
           <!-- No Materials Warning -->
           <div v-else-if="!loadingData && availableMaterials.length === 0" class="text-center py-8">
             <svg class="w-12 h-12 text-amber-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
             <p class="text-gray-700 font-medium mb-2">Belum ada master data material</p>
-            <p class="text-gray-500 text-sm">Silakan tambahkan material di menu Material atau cek RLS policies di Supabase</p>
+            <p class="text-gray-500 text-sm">Silakan tambahkan material di menu Material Management</p>
             <button 
               @click="retryFetch" 
               class="mt-4 text-sm text-blue-600 hover:text-blue-800 font-medium"
@@ -48,13 +76,6 @@
 
           <!-- Material Table -->
           <div v-else>
-            <!-- Debug Info -->
-            <div class="mb-3 p-3 bg-blue-50 border border-blue-200 rounded text-xs">
-              <p class="font-semibold text-blue-900 mb-1">🔍 Debug Info:</p>
-              <p class="text-blue-700">Materials loaded: {{ availableMaterials.length }}</p>
-              <p class="text-blue-700 truncate">Data: {{ JSON.stringify(availableMaterials) }}</p>
-            </div>
-
             <div class="flex justify-between items-center mb-3">
               <p class="text-sm text-gray-600">
                 <span class="font-semibold">{{ availableMaterials.length }}</span> material tersedia
@@ -86,11 +107,13 @@
                   </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
-                  <tr v-for="(row, index) in rows" :key="index" class="hover:bg-gray-50">
+                  <tr v-for="(row, index) in rows" :key="index" class="hover:bg-gray-50 transition-colors">
                     <td class="px-4 py-3">
                       <select 
                         v-model="row.material_id" 
-                        class="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        @change="console.log('Material selected:', row.material_id)"
+                        class="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm transition-all"
+                        :class="{ 'border-red-300 bg-red-50': !row.material_id }"
                         :disabled="loading"
                         required
                       >
@@ -109,8 +132,11 @@
                         type="number" 
                         step="0.01" 
                         min="0"
-                        v-model.number="row.qty" 
-                        class="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" 
+                        v-model="row.qty"
+                        @input="handleQtyInput($event, index)"
+                        @blur="console.log('Qty blur:', row.qty)"
+                        class="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm transition-all" 
+                        :class="{ 'border-red-300 bg-red-50': row.qty <= 0 }"
                         placeholder="0.00"
                         :disabled="loading"
                         required
@@ -190,8 +216,8 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { useProcessingStore } from '~/stores/useProcessingStore'
 import { useMaterialStore } from '~/stores/useMaterialStore'
+import { useProcessingStore } from '~/stores/useProcessingStore'
 
 const props = defineProps({
   show: Boolean,
@@ -199,15 +225,17 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'save'])
-const processingStore = useProcessingStore()
 const materialStore = useMaterialStore()
+const processingStore = useProcessingStore()
 const supabase = useSupabaseClient()
 
 const rows = ref([])
 const loading = ref(false)
 const loadingData = ref(false)
+const errorMessage = ref('')
+const dataLoaded = ref(false) // ✅ Track if data already loaded
 
-const availableMaterials = computed(() => materialStore.materials || [])
+const availableMaterials = ref([]) // ✅ Local cache
 
 const totalWeight = computed(() => {
   const total = rows.value.reduce((sum, row) => {
@@ -222,74 +250,101 @@ const canSave = computed(() => {
   return validRows.length > 0 && availableMaterials.value.length > 0
 })
 
-watch(() => props.show, async (isOpen) => {
-  if (isOpen && props.processId) {
-    await loadModalData()
-  } else {
+// ✅ PERBAIKAN: Only load once per modal open + handle body overflow
+watch(() => props.show, async (isOpen, wasOpen) => {
+  if (isOpen && !wasOpen && props.processId) {
+    // Modal just opened
+    console.log('🔓 Modal opened for process:', props.processId)
+    
+    // ✅ Prevent body scroll on mobile
+    if (process.client) {
+      document.body.style.overflow = 'hidden'
+      document.body.style.position = 'fixed'
+      document.body.style.width = '100%'
+    }
+    
+    // Only load if not already loaded OR if processId changed
+    if (!dataLoaded.value) {
+      await loadModalData()
+    }
+  } else if (!isOpen && wasOpen) {
+    // Modal just closed
+    console.log('🔒 Modal closed')
+    
+    // ✅ Restore body scroll
+    if (process.client) {
+      document.body.style.overflow = ''
+      document.body.style.position = ''
+      document.body.style.width = ''
+    }
+    
     resetModalData()
   }
 })
 
 const loadModalData = async () => {
+  // ✅ Prevent multiple simultaneous loads
+  if (loadingData.value) {
+    console.log('⚠️ Already loading, skipping...')
+    return
+  }
+
   loadingData.value = true
-  console.log('📂 Loading modal for process:', props.processId)
+  errorMessage.value = ''
+  console.log('📂 Loading modal data for process:', props.processId)
   
   try {
-    // 1. Try store fetch first
-    console.log('📦 Attempting store fetch...')
-    await materialStore.fetchMaterials()
-    console.log('✅ Store fetch result:', materialStore.materials.length)
-
-    // 2. If store is empty, try direct query
-    if (materialStore.materials.length === 0) {
-      console.warn('⚠️ Store empty, trying direct query...')
-      const { data, error } = await supabase
-        .from('SB_Material')
-        .select('material_id, material_name, location_id, created_at')
-        .order('material_name')
-      
-      if (error) {
-        console.error('❌ Direct query error:', error)
-        console.error('Error details:', {
-          message: error.message,
-          code: error.code,
-          hint: error.hint
-        })
-      } else if (data) {
-        console.log('✅ Direct query success:', data.length, 'materials')
-        materialStore.materials = data.map(m => ({
-          material_id: m.material_id,
-          material_name: m.material_name,
-          location_id: m.location_id,
-          location_name: 'Unknown',
-          created_at: m.created_at
-        }))
-      }
-    }
-
-    // 3. Fetch existing materials used
-    console.log('🔍 Fetching materials used...')
-    const existingMaterials = await processingStore.fetchMaterialsUsed(props.processId)
-    console.log('✅ Existing materials:', existingMaterials.length)
+    // ✅ Single batch query
+    const { data: materialsData, error: materialsError } = await supabase
+      .from('SB_Material')
+      .select('material_id, material_name, location_id')
+      .order('material_name')
     
-    // 4. Populate rows
-    if (existingMaterials && existingMaterials.length > 0) {
-      rows.value = existingMaterials.map(m => ({
-        material_id: m.material_id,
-        qty: parseFloat(m.qty) || 0
-      }))
+    if (materialsError) throw new Error('Gagal memuat data material: ' + materialsError.message)
+
+    availableMaterials.value = materialsData || []
+    console.log('✅ Materials loaded:', availableMaterials.value.length)
+
+    // ✅ Load existing materials used
+    const { data: usedData, error: usedError } = await supabase
+      .from('SB_Material_Used')
+      .select('used_id, material_id, qty')
+      .eq('processing_id', props.processId)
+    
+    if (usedError) throw new Error('Gagal memuat material yang digunakan: ' + usedError.message)
+
+    console.log('✅ Existing materials used:', usedData?.length || 0)
+    console.log('📦 Raw used data:', JSON.stringify(usedData))
+
+    // Populate rows
+    if (usedData && usedData.length > 0) {
+      rows.value = usedData.map(m => {
+        const row = {
+          material_id: m.material_id,
+          qty: parseFloat(m.qty) || 0
+        }
+        console.log('  Mapping row:', JSON.stringify(row))
+        return row
+      })
     } else {
       rows.value = [{ material_id: '', qty: 0 }]
     }
+
+    console.log('✅ Final rows:', JSON.stringify(rows.value))
+
+    dataLoaded.value = true
+    console.log('✅ Modal data loaded successfully')
   } catch (error) {
     console.error('❌ Load error:', error)
-    alert('Gagal memuat data: ' + error.message)
+    errorMessage.value = error.message
   } finally {
     loadingData.value = false
   }
 }
 
 const retryFetch = async () => {
+  errorMessage.value = ''
+  dataLoaded.value = false
   await loadModalData()
 }
 
@@ -297,6 +352,9 @@ const resetModalData = () => {
   rows.value = []
   loading.value = false
   loadingData.value = false
+  errorMessage.value = ''
+  dataLoaded.value = false
+  availableMaterials.value = [] // ✅ Clear cache
 }
 
 const addRow = () => {
@@ -311,6 +369,18 @@ const removeRow = (index) => {
   }
 }
 
+const handleQtyInput = (event, index) => {
+  const value = event.target.value
+  const numValue = parseFloat(value) || 0
+  
+  console.log(`📝 Qty input at index ${index}: "${value}" → ${numValue}`)
+  
+  // Force update the row
+  rows.value[index].qty = numValue
+  
+  console.log(`✅ Row ${index} updated:`, JSON.stringify(rows.value[index]))
+}
+
 const closeModal = () => {
   if (!loading.value) {
     emit('close')
@@ -318,7 +388,16 @@ const closeModal = () => {
 }
 
 const handleSave = async () => {
-  const validRows = rows.value.filter(r => r.material_id && parseFloat(r.qty) > 0)
+  console.log('🔍 Current rows before validation:', JSON.stringify(rows.value))
+  
+  const validRows = rows.value.filter(r => {
+    const hasId = r.material_id && r.material_id !== ''
+    const hasQty = parseFloat(r.qty) > 0
+    console.log(`  Row check - ID: ${r.material_id}, Qty: ${r.qty}, Valid: ${hasId && hasQty}`)
+    return hasId && hasQty
+  })
+  
+  console.log('✅ Valid rows:', validRows.length, JSON.stringify(validRows))
   
   if (validRows.length === 0) {
     alert('⚠️ Harap isi minimal satu material dengan berat yang valid')
@@ -326,29 +405,88 @@ const handleSave = async () => {
   }
 
   const materialIds = validRows.map(r => r.material_id)
-  if (materialIds.length !== new Set(materialIds).size) {
+  const uniqueIds = new Set(materialIds)
+  
+  console.log('🔍 Material IDs:', materialIds)
+  console.log('🔍 Unique IDs:', [...uniqueIds])
+  
+  if (materialIds.length !== uniqueIds.size) {
     alert('⚠️ Material yang sama tidak boleh dipilih lebih dari satu kali')
     return
   }
 
-  const payload = validRows.map(r => ({
-    material_id: r.material_id,
-    qty: parseFloat(r.qty)
-  }))
-
-  console.log('💾 Saving:', payload)
   loading.value = true
   
   try {
-    const result = await processingStore.saveMaterialsUsed(props.processId, payload)
+    console.log('💾 Saving materials for process:', props.processId)
+
+    // 1. Delete existing materials
+    console.log('🗑️ Deleting existing materials...')
+    const { error: deleteError } = await supabase
+      .from('SB_Material_Used')
+      .delete()
+      .eq('processing_id', props.processId)
     
-    if (result.success) {
-      console.log('✅ Saved successfully')
-      emit('save')
-      closeModal()
-    } else {
-      throw new Error(result.error || 'Unknown error')
+    if (deleteError) {
+      console.error('❌ Delete error:', deleteError)
+      throw deleteError
     }
+    
+    console.log('✅ Existing materials deleted')
+
+    // 2. Insert new materials
+    const payload = validRows.map(r => ({
+      processing_id: props.processId,
+      material_id: r.material_id,
+      qty: parseFloat(r.qty)
+    }))
+
+    console.log('📦 Insert payload:', JSON.stringify(payload, null, 2))
+
+    const { error: insertError } = await supabase
+      .from('SB_Material_Used')
+      .insert(payload)
+    
+    if (insertError) {
+      console.error('❌ Insert error:', insertError)
+      throw insertError
+    }
+    
+    console.log('✅ Materials inserted')
+
+    // 3. Update total input_amount_kg in processing
+    const totalInput = validRows.reduce((sum, r) => {
+      const qty = parseFloat(r.qty) || 0
+      console.log(`  Adding ${qty} to total`)
+      return sum + qty
+    }, 0)
+
+    console.log('📊 Total input calculated:', totalInput)
+
+    const { error: updateError } = await supabase
+      .from('SB_Processing')
+      .update({ input_amount_kg: totalInput })
+      .eq('processing_id', props.processId)
+
+    if (updateError) {
+      console.error('❌ Update error:', updateError)
+      throw updateError
+    }
+
+    console.log('✅ Processing updated with total input')
+    console.log('✅ Save completed successfully!')
+
+    // ✅ Update store immediately for instant UI feedback
+    await processingStore.updateProcessInputAmount(props.processId, totalInput)
+    
+    console.log('✅ Store updated with new input amount')
+
+    // ✅ Emit save with data
+    emit('save', { processId: props.processId, totalInput })
+    
+    console.log('📢 Emitted save event')
+    
+    closeModal()
   } catch (error) {
     console.error('❌ Save failed:', error)
     alert('Gagal menyimpan: ' + error.message)
@@ -368,5 +506,15 @@ const handleSave = async () => {
 .overflow-y-auto::-webkit-scrollbar-thumb {
   background: #888;
   border-radius: 3px;
+}
+
+/* ✅ PERBAIKAN: Prevent scrolling issues on mobile */
+.touch-none {
+  touch-action: none;
+}
+
+/* ✅ Ensure modal is always on top */
+.z-50 {
+  z-index: 9999 !important;
 }
 </style>

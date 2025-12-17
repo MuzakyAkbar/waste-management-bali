@@ -1,9 +1,8 @@
 <template>
   <div class="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50 flex items-center justify-center p-4">
-    <div class="w-full max-w-md animate-fade-in">
-      <!-- Card -->
+    <div class="w-full max-w-lg animate-fade-in">
+      
       <div class="bg-white rounded-2xl sm:rounded-3xl shadow-strong p-6 sm:p-8 md:p-10">
-        <!-- Logo/Title -->
         <div class="text-center mb-6 sm:mb-8">
           <div class="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl sm:rounded-3xl mx-auto mb-4 flex items-center justify-center shadow-lg">
             <svg class="w-8 h-8 sm:w-10 sm:h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -18,7 +17,6 @@
           </p>
         </div>
 
-        <!-- Error Message -->
         <Transition name="slide-down">
           <div v-if="authStore.error" class="mb-4 p-3 sm:p-4 bg-red-50 border border-red-200 rounded-lg sm:rounded-xl animate-slide-down">
             <div class="flex items-start gap-3">
@@ -35,14 +33,12 @@
           </div>
         </Transition>
 
-        <!-- Login Form -->
         <form @submit.prevent="handleLogin" class="space-y-5 sm:space-y-6">
-          <!-- Email -->
           <div>
             <label class="block text-sm font-semibold text-gray-700 mb-2">
               Email
             </label>
-            <div class="relative">
+            <div class="relative w-full">
               <div class="absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none">
                 <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
@@ -52,18 +48,17 @@
                 v-model="email"
                 type="email"
                 required
-                class="input pl-10 sm:pl-12 text-sm sm:text-base"
+                class="input w-full pl-10 sm:pl-12 text-sm sm:text-base"
                 placeholder="email@example.com"
               />
             </div>
           </div>
 
-          <!-- Password -->
           <div>
             <label class="block text-sm font-semibold text-gray-700 mb-2">
               Password
             </label>
-            <div class="relative">
+            <div class="relative w-full">
               <div class="absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none">
                 <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -73,7 +68,7 @@
                 v-model="password"
                 :type="showPassword ? 'text' : 'password'"
                 required
-                class="input pl-10 sm:pl-12 pr-10 sm:pr-12 text-sm sm:text-base"
+                class="input w-full pl-10 sm:pl-12 pr-10 sm:pr-12 text-sm sm:text-base"
                 placeholder="••••••••"
               />
               <button
@@ -92,7 +87,6 @@
             </div>
           </div>
 
-          <!-- Remember Me -->
           <div class="flex items-center justify-between">
             <label class="flex items-center gap-2 cursor-pointer group">
               <input
@@ -109,7 +103,6 @@
             </a>
           </div>
 
-          <!-- Submit Button -->
           <button
             type="submit"
             :disabled="authStore.loading"
@@ -132,7 +125,6 @@
         </form>
       </div>
 
-      <!-- Footer -->
       <p class="text-center text-xs sm:text-sm text-gray-600 mt-6">
         © 2025 Waste Management Bali. All rights reserved.
       </p>

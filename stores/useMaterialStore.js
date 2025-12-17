@@ -4,7 +4,7 @@ export const useMaterialStore = defineStore('material', {
   state: () => ({
     materials: [],
     loading: false,
-    error: null,
+    error: null
   }),
 
   actions: {
@@ -15,108 +15,190 @@ export const useMaterialStore = defineStore('material', {
       try {
         const supabase = useSupabaseClient()
         
-        console.log('🔍 Fetching materials from SB_Material...')
-        
-        // Query dengan LEFT JOIN ke SB_Location
+        console.log('📦 Fetching materials...')
+
         const { data, error } = await supabase
           .from('SB_Material')
-          .select(`
-            material_id,
-            material_name,
-            location_id,
-            created_at,
-            SB_Location (
-              name
-            )
-          `)
-          .order('material_name')
+          .select('material_id, material_name, location_id, created_at')
+          .order('material_name', { ascending: true })
 
         if (error) {
           console.error('❌ Supabase error:', error)
           throw error
         }
-        
-        console.log('📦 Raw data from Supabase:', data)
-        
-        if (!data || data.length === 0) {
-          console.warn('⚠️ No materials found in database')
-          this.materials = []
-          return
-        }
-        
-        // Format data dengan location name
-        this.materials = data.map(m => ({
+
+        console.log('✅ Materials fetched:', data?.length || 0)
+
+        this.materials = (data || []).map(m => ({
           material_id: m.material_id,
           material_name: m.material_name,
           location_id: m.location_id,
-          location_name: m.SB_Location?.name || 'Unknown',
           created_at: m.created_at
         }))
-        
-        console.log('✅ Materials loaded:', this.materials.length)
-        console.log('📋 Materials:', this.materials)
-        
+
+        return { success: true, data: this.materials }
       } catch (err) {
         console.error('❌ Fetch materials error:', err)
         this.error = err.message
-        this.materials = []
+        return { success: false, error: err.message }
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async fetchMaterialsWithLocations() {
+      this.loading = true
+      this.error = null
+      
+      try {
+        const supabase = useSupabaseClient()
+        
+        console.log('📦 Fetching materials with locations...')
+
+        // ✅ PERBAIKAN: Gunakan nama kolom yang benar dari database
+        const { data: materialsData, error: materialsError } = await supabase
+          .from('SB_Material')
+          .select('material_id, material_name, location_id, created_at')
+          .order('material_name', { ascending: true })
+
+        if (materialsError) throw materialsError
+
+        const { data: locationsData, error: locationsError } = await supabase
+          .from('SB_Location')
+          .select('location_id, location_name')
+
+        if (locationsError) throw locationsError
+
+        // Create location map
+        const locationMap = {}
+        if (locationsData) {
+          locationsData.forEach(loc => {
+            locationMap[loc.location_id] = loc.location_name
+          })
+        }
+
+        // Merge data
+        this.materials = (materialsData || []).map(m => ({
+          material_id: m.material_id,
+          material_name: m.material_name,
+          location_id: m.location_id,
+          location_name: locationMap[m.location_id] || 'Unknown',
+          created_at: m.created_at
+        }))
+
+        console.log('✅ Materials with locations fetched:', this.materials.length)
+
+        return { success: true, data: this.materials }
+      } catch (err) {
+        console.error('❌ Fetch materials error:', err)
+        this.error = err.message
+        return { success: false, error: err.message }
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async createMaterial(materialData) {
+      this.loading = true
+      
+      try {
+        const supabase = useSupabaseClient()
+        
+        console.log('➕ Creating material:', materialData)
+
+        const { data, error } = await supabase
+          .from('SB_Material')
+          .insert([{
+            material_name: materialData.material_name,
+            location_id: materialData.location_id
+          }])
+          .select()
+          .single()
+
+        if (error) throw error
+
+        console.log('✅ Material created:', data)
+
+        await this.fetchMaterials()
+        return { success: true, data }
+      } catch (err) {
+        console.error('❌ Create material error:', err)
+        this.error = err.message
+        return { success: false, error: err.message }
       } finally {
         this.loading = false
       }
     },
 
     async addMaterial(materialData) {
+      return await this.createMaterial(materialData)
+    },
+
+    async updateMaterial(materialId, updates) {
       this.loading = true
+      
       try {
         const supabase = useSupabaseClient()
         
-        console.log('➕ Adding material:', materialData)
-        
+        console.log('✏️ Updating material:', materialId, updates)
+
         const { data, error } = await supabase
           .from('SB_Material')
-          .insert([materialData])
+          .update(updates)
+          .eq('material_id', materialId)
           .select()
           .single()
 
-        if (error) {
-          console.error('❌ Add material error:', error)
-          throw error
-        }
-        
-        console.log('✅ Material added:', data)
+        if (error) throw error
+
+        console.log('✅ Material updated:', data)
+
         await this.fetchMaterials()
         return { success: true, data }
       } catch (err) {
-        console.error('❌ Add material error:', err)
+        console.error('❌ Update material error:', err)
+        this.error = err.message
         return { success: false, error: err.message }
       } finally {
         this.loading = false
       }
     },
 
-    async deleteMaterial(id) {
+    async deleteMaterial(materialId) {
+      this.loading = true
+      
       try {
         const supabase = useSupabaseClient()
         
-        console.log('🗑️ Deleting material:', id)
-        
+        console.log('🗑️ Deleting material:', materialId)
+
         const { error } = await supabase
           .from('SB_Material')
           .delete()
-          .eq('material_id', id)
+          .eq('material_id', materialId)
 
-        if (error) {
-          console.error('❌ Delete material error:', error)
-          throw error
-        }
-        
+        if (error) throw error
+
         console.log('✅ Material deleted')
+
         await this.fetchMaterials()
         return { success: true }
       } catch (err) {
         console.error('❌ Delete material error:', err)
+        this.error = err.message
         return { success: false, error: err.message }
+      } finally {
+        this.loading = false
       }
+    },
+
+    getMaterialById(materialId) {
+      return this.materials.find(m => m.material_id === materialId)
+    },
+
+    getMaterialName(materialId) {
+      const material = this.getMaterialById(materialId)
+      return material ? material.material_name : 'Unknown'
     }
   }
 })

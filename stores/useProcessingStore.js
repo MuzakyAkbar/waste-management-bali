@@ -11,18 +11,39 @@ export const useProcessingStore = defineStore('processing', {
       completedToday: 0,
       totalOutput: 0,
     },
+    lastFetch: null, // ✅ Track last fetch time
   }),
 
   actions: {
-    async fetchProcesses() {
+    async fetchProcesses(force = false) {
+      // ✅ Clear cache jika force refresh
+      if (force) {
+        console.log('🔄 Force refresh - clearing cache')
+        this.lastFetch = null
+      }
+      
+      // ✅ Prevent multiple simultaneous fetches
+      if (this.loading && !force) {
+        console.log('⚠️ Already fetching, skipping...')
+        return { success: true, data: this.processes }
+      }
+
+      // ✅ Cache for 5 seconds unless forced
+      const now = Date.now()
+      if (!force && this.lastFetch && (now - this.lastFetch) < 5000) {
+        console.log('⚡ Using cached data')
+        return { success: true, data: this.processes }
+      }
+
       this.loading = true
       this.error = null
+      
       try {
         const supabase = useSupabaseClient()
         const config = useRuntimeConfig()
         const baseUrl = config.public.supabaseUrl
 
-        console.log('📥 Fetching processes...')
+        console.log('🔥 Fetching processes...')
 
         const { data, error } = await supabase
           .from('SB_Processing')
@@ -33,18 +54,10 @@ export const useProcessingStore = defineStore('processing', {
 
         console.log('✅ Fetched processes:', data?.length || 0)
 
-        // ✅ Map processes and fetch materials
-        this.processes = await Promise.all((data || []).map(async (item) => {
-          console.log('🔍 Process item:', {
-            id: item.processing_id,
-            kwh_start_images: item.kwh_start_images,
-            kwh_end_images: item.kwh_end_images,
-            output_images: item.output_images
-          })
-
-          // ✅ Fetch materials untuk setiap process
-          const materials = await this.fetchMaterialsUsed(item.processing_id)
-
+        // ✅ Map processes WITHOUT fetching materials (lazy load)
+        this.processes = (data || []).map((item) => {
+          console.log(`  Process ${item.processing_id}: input_amount_kg = ${item.input_amount_kg}`)
+          
           return {
             id: item.processing_id,
             activity_date: item.start_datetime,
@@ -57,13 +70,20 @@ export const useProcessingStore = defineStore('processing', {
             kwh_start_images: this.parseImages(item.kwh_start_images, baseUrl),
             kwh_end_images: this.parseImages(item.kwh_end_images, baseUrl),
             output_images: this.parseImages(item.output_images, baseUrl),
-            materials: materials, // ✅ Tambahkan materials
+            materials: [], // ✅ Empty by default, load on demand
             status: item.end_datetime ? 'completed' : 'in_progress',
-            notes: '-' 
+            notes: '-'
           }
-        }))
+        })
+        
+        console.log('📊 Mapped processes with input amounts:', this.processes.map(p => ({
+          id: p.id,
+          input: p.input_amount
+        })))
         
         this.calculateStatistics()
+        this.lastFetch = Date.now()
+        
         return { success: true, data: this.processes }
       } catch (err) {
         console.error('❌ Fetch processes error:', err)
@@ -76,25 +96,21 @@ export const useProcessingStore = defineStore('processing', {
 
     parseImages(imagesData, baseUrl) {
       if (!imagesData) {
-        console.log('⚠️ No images data')
         return []
       }
       
       try {
         let parsed = imagesData
         
-        // Jika string, parse dulu
         if (typeof imagesData === 'string') {
           parsed = JSON.parse(imagesData)
         }
         
-        // Jika bukan array, return kosong
         if (!Array.isArray(parsed)) {
           console.warn('⚠️ Images data is not an array:', typeof parsed)
           return []
         }
 
-        // Map dan ensure URL ada
         return parsed.map(img => ({
           url: img.url || `${baseUrl}/storage/v1/object/public/${img.bucket}/${img.path}`,
           path: img.path,
@@ -119,17 +135,15 @@ export const useProcessingStore = defineStore('processing', {
               throw new Error('User ID not found')
             }
 
-            // ✅ PERBAIKAN: Upload image terlebih dahulu dengan ID temporary
             let kwhStartImages = []
             
             if (processData.imageFile) {
               console.log('📤 Uploading image:', processData.imageFile.name)
               
-              // Upload dengan folder 'temp' dulu, nanti rename setelah dapat processing_id
               const uploadRes = await this.uploadImage(
                 processData.imageFile, 
                 'kwh-start-images', 
-                'temp' // Folder temporary
+                'temp'
               )
               
               console.log('📤 Upload result:', uploadRes)
@@ -152,7 +166,7 @@ export const useProcessingStore = defineStore('processing', {
               created_by: userId, 
               start_datetime: processData.activity_date,
               kwh_start: processData.kwh_start || 0,
-              kwh_start_images: kwhStartImages, // ✅ Array of objects
+              kwh_start_images: kwhStartImages,
               input_amount_kg: 0, 
             }
             
@@ -171,7 +185,7 @@ export const useProcessingStore = defineStore('processing', {
             
             console.log('✅ Process created:', data)
             
-            await this.fetchProcesses()
+            await this.fetchProcesses(true) // Force refresh
             return { success: true, data }
             
         } catch(err) {
@@ -214,7 +228,6 @@ export const useProcessingStore = defineStore('processing', {
 
             console.log('  - Upload data:', data)
 
-            // ✅ Generate public URL
             const publicUrl = `${baseUrl}/storage/v1/object/public/${bucketName}/${filePath}`
 
             console.log('✅ Upload success!')
@@ -267,7 +280,7 @@ export const useProcessingStore = defineStore('processing', {
             
             console.log('✅ Process completed successfully')
             
-            await this.fetchProcesses()
+            await this.fetchProcesses(true) // Force refresh
             return { success: true }
          } catch(err) { 
             console.error('❌ Complete process error:', err)
@@ -277,9 +290,12 @@ export const useProcessingStore = defineStore('processing', {
          }
     },
     
-    async fetchMaterialsUsed(processingId) {
+    // ✅ Lazy load materials only when needed
+    async fetchMaterialsForProcess(processingId) {
       try {
         const supabase = useSupabaseClient()
+        
+        console.log('🔍 Fetching materials for process:', processingId)
         
         const { data, error } = await supabase
           .from('SB_Material_Used')
@@ -295,12 +311,20 @@ export const useProcessingStore = defineStore('processing', {
         
         if (error) throw error
         
-        return (data || []).map(m => ({
+        const materials = (data || []).map(m => ({
             used_id: m.used_id,
             material_id: m.material_id,
             material_name: m.SB_Material?.material_name || 'Unknown',
             qty: parseFloat(m.qty) || 0
         }))
+
+        // ✅ Update the specific process in cache
+        const processIndex = this.processes.findIndex(p => p.id === processingId)
+        if (processIndex !== -1) {
+          this.processes[processIndex].materials = materials
+        }
+
+        return materials
       } catch (err) {
         console.error('❌ Fetch materials error:', err)
         return []
@@ -344,13 +368,41 @@ export const useProcessingStore = defineStore('processing', {
 
         if (updateError) throw updateError
 
-        await this.fetchProcesses()
+        await this.fetchProcesses(true) // Force refresh
         return { success: true }
       } catch (err) {
         console.error('❌ Save materials error:', err)
         return { success: false, error: err.message }
       } finally {
         this.loading = false
+      }
+    },
+
+    // ✅ Update single process without full refetch
+    async updateProcessInputAmount(processingId, inputAmount) {
+      try {
+        const processIndex = this.processes.findIndex(p => p.id === processingId)
+        
+        if (processIndex !== -1) {
+          console.log(`🔄 Updating process ${processingId} input amount: ${this.processes[processIndex].input_amount} → ${inputAmount}`)
+          
+          // Update in local state immediately for instant UI feedback
+          this.processes[processIndex].input_amount = inputAmount
+          
+          console.log('✅ Process updated in store')
+          
+          // Recalculate statistics
+          this.calculateStatistics()
+          
+          return true
+        } else {
+          console.warn('⚠️ Process not found in store, will fetch all')
+          await this.fetchProcesses(true)
+          return true
+        }
+      } catch (err) {
+        console.error('❌ Update process error:', err)
+        return false
       }
     },
 
