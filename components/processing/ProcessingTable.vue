@@ -141,13 +141,22 @@
                       </div>
                     </div>
 
-                    <div v-if="getMaterials(process).length > 0" class="pb-6 border-b border-gray-200">
+                    <div class="pb-6 border-b border-gray-200">
                       <h5 class="text-xs font-bold text-gray-700 uppercase mb-3">📦 Materials Used</h5>
-                      <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      
+                      <div v-if="!getMaterials(process).length && loadingMaterials === process.id" class="text-sm text-gray-500 italic">
+                        Memuat data material...
+                      </div>
+
+                      <div v-else-if="getMaterials(process).length > 0" class="grid grid-cols-2 md:grid-cols-3 gap-3">
                         <div v-for="(mat, idx) in getMaterials(process)" :key="idx" class="bg-gray-50 rounded-lg p-3 border border-gray-200">
                           <p class="text-xs text-gray-500">{{ mat.material_name }}</p>
                           <p class="text-sm font-bold text-gray-900">{{ mat.qty }} kg</p>
                         </div>
+                      </div>
+
+                      <div v-else class="text-sm text-gray-400 italic">
+                        Tidak ada material yang tercatat.
                       </div>
                     </div>
 
@@ -192,10 +201,17 @@
                       </div>
                     </div>
 
-                    <div class="pt-4 border-t border-gray-200">
-                      <span class="text-xs text-gray-500 uppercase font-bold">Completion Time</span>
-                      <p class="text-sm font-medium text-gray-900 mt-1">{{ formatDate(process.completed_at) }} {{ formatTime(process.completed_at) }}</p>
+                    <div class="pt-4 border-t border-gray-200 grid grid-cols-2 gap-4">
+                      <div>
+                        <span class="text-xs text-gray-500 uppercase font-bold">Start Time</span>
+                        <p class="text-sm font-medium text-gray-900 mt-1">{{ formatDate(process.activity_date) }} {{ formatTime(process.activity_date) }}</p>
+                      </div>
+                      <div>
+                        <span class="text-xs text-gray-500 uppercase font-bold">Completion Time</span>
+                        <p class="text-sm font-medium text-gray-900 mt-1">{{ formatDate(process.completed_at) }} {{ formatTime(process.completed_at) }}</p>
+                      </div>
                     </div>
+
                   </div>
                 </td>
               </tr>
@@ -251,13 +267,22 @@
                 </div>
               </div>
 
-              <div v-if="getMaterials(process).length > 0" class="bg-blue-50 rounded-lg p-3">
-                <p class="text-xs font-bold text-blue-800 mb-2">Materials</p>
-                <div class="space-y-1">
+              <div class="bg-blue-50 rounded-lg p-3">
+                <p class="text-xs font-bold text-blue-800 mb-2">Materials Used</p>
+                
+                <div v-if="!getMaterials(process).length && loadingMaterials === process.id" class="text-xs text-gray-500 italic">
+                  Memuat data...
+                </div>
+                
+                <div v-else-if="getMaterials(process).length > 0" class="space-y-1">
                   <div v-for="(mat, idx) in getMaterials(process)" :key="idx" class="flex justify-between text-xs">
                     <span class="text-gray-700">{{ mat.material_name }}</span>
                     <span class="font-bold text-gray-900">{{ mat.qty }} kg</span>
                   </div>
+                </div>
+
+                <div v-else class="text-xs text-gray-400 italic">
+                  Tidak ada material.
                 </div>
               </div>
 
@@ -267,6 +292,18 @@
                 <ImageGalleryViewer :images="process.kwh_end_images || []" label="KWh End" :columns="3" />
                 <ImageGalleryViewer :images="process.output_images || []" label="Output" :columns="3" />
               </div>
+              
+              <div class="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-gray-100">
+                <div>
+                   <p class="text-gray-500 font-bold">Start</p>
+                   <p>{{ formatDate(process.activity_date) }} {{ formatTime(process.activity_date) }}</p>
+                </div>
+                <div class="text-right">
+                   <p class="text-gray-500 font-bold">End</p>
+                   <p>{{ formatDate(process.completed_at) }} {{ formatTime(process.completed_at) }}</p>
+                </div>
+              </div>
+
             </div>
           </div>
 
@@ -314,6 +351,7 @@
 <script setup>
 import { ref } from 'vue'
 import ImageGalleryViewer from '~/components/common/ImageGalleryViewer.vue'
+import { useProcessingStore } from '~/stores/useProcessingStore'
 
 const props = defineProps({
   processes: {
@@ -328,44 +366,81 @@ const props = defineProps({
 
 const emit = defineEmits(['complete', 'add-new', 'manage-materials'])
 
+const processingStore = useProcessingStore()
 const expandedRows = ref([])
+const loadingMaterials = ref(null)
 
-const toggleDetails = (processId) => {
+const toggleDetails = async (processId) => {
   const index = expandedRows.value.indexOf(processId)
   if (index > -1) {
     expandedRows.value.splice(index, 1)
   } else {
     expandedRows.value.push(processId)
+    const process = props.processes.find(p => p.id === processId)
+    const currentMaterials = getMaterials(process)
+    if (process && (!currentMaterials || currentMaterials.length === 0)) {
+       loadingMaterials.value = processId
+       await processingStore.fetchMaterialsForProcess(processId)
+       loadingMaterials.value = null
+    }
   }
 }
 
-// ✅ NEW HELPER: Handles both 'materials' (flat) and 'SB_Material_Used' (nested Supabase)
 const getMaterials = (process) => {
-  // If data is already flattened by Store
   if (process.materials && Array.isArray(process.materials)) {
     return process.materials
   }
-  
-  // If data is raw from Supabase Query (Nested)
   if (process.SB_Material_Used && Array.isArray(process.SB_Material_Used)) {
     return process.SB_Material_Used.map(item => ({
-      // Handle both possible structures if material name is nested or joined
       material_name: item.SB_Material?.material_name || item.material_name || 'Material Info Unavailable',
       qty: item.qty
     }))
   }
-
   return []
 }
 
+// ---------------------------------------------------------
+// HELPER: Convert Image to Base64 (Wajib untuk PDF Images)
+// ---------------------------------------------------------
+const getBase64ImageFromURL = (url) => {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.setAttribute('crossOrigin', 'anonymous') // KUNCI: Izin akses lintas domain
+    
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = img.width
+      canvas.height = img.height
+      const ctx = canvas.getContext('2d')
+      ctx.drawImage(img, 0, 0)
+      try {
+        const dataURL = canvas.toDataURL('image/jpeg', 0.8)
+        resolve(dataURL)
+      } catch (e) {
+        console.error('Canvas tainted (CORS issue):', e)
+        resolve(null)
+      }
+    }
+    
+    img.onerror = (e) => {
+      console.error('Image load error:', url)
+      resolve(null)
+    }
+
+    img.src = url
+  })
+}
+
+// ---------------------------------------------------------
+// EXPORT PDF FUNCTION (Revised)
+// ---------------------------------------------------------
 const exportPDF = async (process) => {
   try {
     const { jsPDF } = await import('jspdf')
     const doc = new jsPDF()
-
     let yPos = 20
 
-    // Header
+    // HEADER
     doc.setFontSize(20)
     doc.setFont(undefined, 'bold')
     doc.text('Laporan Pengolahan Sampah', 105, yPos, { align: 'center' })
@@ -375,41 +450,37 @@ const exportPDF = async (process) => {
     doc.setFont(undefined, 'normal')
     doc.text(`ID Laporan: ${process.id}`, 105, yPos, { align: 'center' })
     yPos += 15
-
-    // Box border
+    
     doc.setDrawColor(200, 200, 200)
     doc.setLineWidth(0.5)
+    doc.line(20, yPos, 190, yPos)
+    yPos += 10
     
-    // Section 1: Date & Time
+    // 1. INFORMASI AKTIVITAS
     doc.setFontSize(12)
     doc.setFont(undefined, 'bold')
     doc.text('Informasi Aktivitas', 20, yPos)
     yPos += 8
-    
     doc.setFontSize(10)
     doc.setFont(undefined, 'normal')
     doc.text(`Tanggal Mulai: ${formatDate(process.activity_date)} ${formatTime(process.activity_date)}`, 25, yPos)
     yPos += 6
-    
     if (process.completed_at) {
       doc.text(`Tanggal Selesai: ${formatDate(process.completed_at)} ${formatTime(process.completed_at)}`, 25, yPos)
       yPos += 6
     }
-    
     doc.text(`Status: ${process.status === 'completed' ? 'Selesai' : 'Dalam Proses'}`, 25, yPos)
     yPos += 12
 
-    // Section 2: KWh Details
+    // 2. KONSUMSI ENERGI
     doc.setFontSize(12)
     doc.setFont(undefined, 'bold')
     doc.text('Konsumsi Energi', 20, yPos)
     yPos += 8
-    
     doc.setFontSize(10)
     doc.setFont(undefined, 'normal')
     doc.text(`KWh Awal: ${process.kwh_start} kWh`, 25, yPos)
     yPos += 6
-    
     if (process.kwh_end) {
       doc.text(`KWh Akhir: ${process.kwh_end} kWh`, 25, yPos)
       yPos += 6
@@ -421,17 +492,15 @@ const exportPDF = async (process) => {
       yPos += 12
     }
 
-    // Section 3: Materials (UPDATED to use helper)
+    // 3. MATERIALS
     const materialsList = getMaterials(process)
     if (materialsList && materialsList.length > 0) {
       doc.setFontSize(12)
       doc.setFont(undefined, 'bold')
       doc.text('Material Digunakan', 20, yPos)
       yPos += 8
-      
       doc.setFontSize(10)
       doc.setFont(undefined, 'normal')
-      
       materialsList.forEach((mat) => {
         doc.text(`- ${mat.material_name}: ${mat.qty} kg`, 25, yPos)
         yPos += 6
@@ -439,17 +508,15 @@ const exportPDF = async (process) => {
       yPos += 6
     }
 
-    // Section 4: Input/Output
+    // 4. RINGKASAN PRODUKSI
     doc.setFontSize(12)
     doc.setFont(undefined, 'bold')
     doc.text('Ringkasan Produksi', 20, yPos)
     yPos += 8
-    
     doc.setFontSize(10)
     doc.setFont(undefined, 'normal')
     doc.text(`Total Input: ${formatNumber(process.input_amount)} kg`, 25, yPos)
     yPos += 6
-    
     if (process.output_amount) {
       doc.text(`Total Output: ${formatNumber(process.output_amount)} kg`, 25, yPos)
       yPos += 12
@@ -457,91 +524,46 @@ const exportPDF = async (process) => {
       yPos += 12
     }
 
-    // Section 5: Images
+    // 5. BUKTI FOTO (Implemented Logic)
     if (process.status === 'completed') {
-      const addImageToPDF = async (imageUrl, label, x, y, width, height) => {
-        try {
-          const response = await fetch(imageUrl)
-          const blob = await response.blob()
-          
-          return new Promise((resolve) => {
-            const reader = new FileReader()
-            reader.onloadend = () => {
-              try {
-                const base64 = reader.result
-                doc.addImage(base64, 'JPEG', x, y, width, height)
-                doc.setFontSize(8)
-                doc.text(label, x, y + height + 4)
-                resolve(true)
-              } catch (err) {
-                console.error('Error adding image:', err)
-                resolve(false)
-              }
-            }
-            reader.readAsDataURL(blob)
-          })
-        } catch (err) {
-          console.error('Error loading image:', err)
-          return false
-        }
-      }
-
       doc.addPage()
       yPos = 20
-      
       doc.setFontSize(14)
       doc.setFont(undefined, 'bold')
       doc.text('Bukti Foto', 105, yPos, { align: 'center' })
       yPos += 15
 
-      // KWh Start Images
-      if (process.kwh_start_images && process.kwh_start_images.length > 0) {
-        doc.setFontSize(11)
-        doc.setFont(undefined, 'bold')
-        doc.text('Foto KWh Awal:', 20, yPos)
-        yPos += 8
-        
-        for (let i = 0; i < Math.min(process.kwh_start_images.length, 2); i++) {
-          const img = process.kwh_start_images[i]
-          const xPos = 20 + (i * 85)
-          await addImageToPDF(img.url, `Awal ${i + 1}`, xPos, yPos, 80, 60)
-        }
-        yPos += 70
-      }
+      // Helper lokal untuk menambah section gambar
+      const addSectionImages = async (title, images) => {
+        if (!images || images.length === 0) return
 
-      // KWh End Images
-      if (process.kwh_end_images && process.kwh_end_images.length > 0) {
-        doc.setFontSize(11)
-        doc.setFont(undefined, 'bold')
-        doc.text('Foto KWh Akhir:', 20, yPos)
-        yPos += 8
-        
-        for (let i = 0; i < Math.min(process.kwh_end_images.length, 2); i++) {
-          const img = process.kwh_end_images[i]
-          const xPos = 20 + (i * 85)
-          await addImageToPDF(img.url, `Akhir ${i + 1}`, xPos, yPos, 80, 60)
-        }
-        yPos += 70
-      }
-
-      // Output Images
-      if (process.output_images && process.output_images.length > 0) {
-        if (yPos > 200) {
+        if (yPos > 250) {
           doc.addPage()
           yPos = 20
         }
-        
+
         doc.setFontSize(11)
         doc.setFont(undefined, 'bold')
-        doc.text('Foto Output:', 20, yPos)
-        yPos += 8
-        
-        for (let i = 0; i < Math.min(process.output_images.length, 2); i++) {
-          const img = process.output_images[i]
-          const xPos = 20 + (i * 85)
-          await addImageToPDF(img.url, `Output ${i + 1}`, xPos, yPos, 80, 60)
+        doc.text(title, 20, yPos)
+        yPos += 10
+
+        // Loop gambar (max 2 per baris)
+        for (let i = 0; i < Math.min(images.length, 2); i++) {
+          const imgUrl = images[i].url
+          // Konversi ke Base64 menggunakan helper yang sudah dibuat
+          const base64Img = await getBase64ImageFromURL(imgUrl)
+          
+          if (base64Img) {
+            const xPos = 20 + (i * 85)
+            doc.addImage(base64Img, 'JPEG', xPos, yPos, 80, 60)
+          }
         }
+        yPos += 70
       }
+
+      await addSectionImages('Foto KWh Awal:', process.kwh_start_images)
+      await addSectionImages('Foto KWh Akhir:', process.kwh_end_images)
+      await addSectionImages('Foto Output:', process.output_images)
     }
 
     doc.setPage(1)
@@ -549,7 +571,7 @@ const exportPDF = async (process) => {
     doc.setFont(undefined, 'italic')
     doc.text(`Dibuat pada: ${new Date().toLocaleString('id-ID')}`, 105, 285, { align: 'center' })
 
-    doc.save(`laporan-pengolahan-sampah-${process.id}.pdf`)
+    doc.save(`Laporan_${process.id}.pdf`)
   } catch (error) {
     console.error('Export PDF error:', error)
     alert('Gagal mengekspor PDF: ' + error.message)
