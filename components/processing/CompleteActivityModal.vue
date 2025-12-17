@@ -58,13 +58,22 @@
           </div>
 
           <div class="space-y-4">
+            <!-- ✅ PERBAIKAN: Support multiple images -->
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">Foto KWh Akhir (Wajib)</label>
-              <ImageUpload :max-images="1" label="Foto Meteran Akhir" @images-changed="(imgs) => handleImageChange('kwh', imgs)" />
+              <label class="block text-sm font-medium text-gray-700 mb-2">Foto KWh Akhir (Max 3)</label>
+              <ImageUpload 
+                :max-images="3" 
+                label="Foto Meteran Akhir" 
+                @images-changed="(imgs) => handleImageChange('kwh', imgs)" 
+              />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">Foto Hasil Output (Wajib)</label>
-              <ImageUpload :max-images="1" label="Foto Tumpukan/Hasil" @images-changed="(imgs) => handleImageChange('output', imgs)" />
+              <label class="block text-sm font-medium text-gray-700 mb-2">Foto Hasil Output (Max 3)</label>
+              <ImageUpload 
+                :max-images="3" 
+                label="Foto Tumpukan/Hasil" 
+                @images-changed="(imgs) => handleImageChange('output', imgs)" 
+              />
             </div>
           </div>
         </div>
@@ -93,8 +102,10 @@ const processingStore = useProcessingStore()
 const loading = ref(false)
 const error = ref(null)
 const form = ref({ end_date: '', end_time: '', kwh_end: '', output_amount: '' })
-const kwhEndFile = ref(null)
-const outputFile = ref(null)
+
+// ✅ PERBAIKAN: Support multiple files
+const kwhEndFiles = ref([])
+const outputFiles = ref([])
 
 const kwhUsed = computed(() => {
   const start = parseFloat(props.process?.kwh_start || 0)
@@ -109,15 +120,21 @@ watch(() => props.show, (newVal) => {
     form.value.end_time = now.toTimeString().slice(0, 5)
     form.value.kwh_end = ''
     form.value.output_amount = ''
-    kwhEndFile.value = null
-    outputFile.value = null
+    kwhEndFiles.value = []
+    outputFiles.value = []
     error.value = null
   }
 })
 
+// ✅ PERBAIKAN: Handle multiple images
 const handleImageChange = (type, images) => {
-  const file = images.length > 0 ? images[0].file : null
-  type === 'kwh' ? kwhEndFile.value = file : outputFile.value = file
+  const files = images.map(img => img.file)
+  if (type === 'kwh') {
+    kwhEndFiles.value = files
+  } else {
+    outputFiles.value = files
+  }
+  console.log(`📸 ${type} images:`, files.length)
 }
 
 const formatDate = (dateString) => new Date(dateString).toLocaleString('id-ID')
@@ -125,32 +142,71 @@ const closeModal = () => emit('close')
 
 const handleSubmit = async () => {
   error.value = null
-  if (!form.value.kwh_end || !form.value.output_amount) return error.value = 'Data wajib diisi.'
-  if (!kwhEndFile.value || !outputFile.value) return error.value = 'Upload kedua foto wajib.'
+  
+  // Validation
+  if (!form.value.kwh_end || !form.value.output_amount) {
+    return error.value = 'Data wajib diisi.'
+  }
+  if (kwhEndFiles.value.length === 0 || outputFiles.value.length === 0) {
+    return error.value = 'Upload minimal 1 foto untuk setiap kategori.'
+  }
   
   loading.value = true
 
   try {
-    // 1. Upload ke Bucket kwh-end-images dalam folder ID Proses
-    const kwhUpload = await processingStore.uploadImage(kwhEndFile.value, 'kwh-end-images', props.process.id)
-    if (!kwhUpload.success) throw new Error('Gagal upload foto KWh.')
+    // ✅ PERBAIKAN: Upload multiple images
+    const kwhEndImagesArray = []
+    for (const file of kwhEndFiles.value) {
+      const uploadRes = await processingStore.uploadImage(
+        file, 
+        'kwh-end-images', 
+        props.process.id
+      )
+      if (uploadRes.success) {
+        kwhEndImagesArray.push({
+          url: uploadRes.url,
+          path: uploadRes.path,
+          bucket: uploadRes.bucket
+        })
+      }
+    }
 
-    // 2. Upload ke Bucket output-images dalam folder ID Proses
-    const outputUpload = await processingStore.uploadImage(outputFile.value, 'output-images', props.process.id)
-    if (!outputUpload.success) throw new Error('Gagal upload foto Output.')
+    const outputImagesArray = []
+    for (const file of outputFiles.value) {
+      const uploadRes = await processingStore.uploadImage(
+        file, 
+        'output-images', 
+        props.process.id
+      )
+      if (uploadRes.success) {
+        outputImagesArray.push({
+          url: uploadRes.url,
+          path: uploadRes.path,
+          bucket: uploadRes.bucket
+        })
+      }
+    }
 
-    // 3. Simpan Data
+    if (kwhEndImagesArray.length === 0 || outputImagesArray.length === 0) {
+      throw new Error('Gagal upload gambar')
+    }
+
+    console.log('✅ Uploaded images:', {
+      kwh: kwhEndImagesArray.length,
+      output: outputImagesArray.length
+    })
+
+    // ✅ PERBAIKAN: Simpan sebagai array
     const completionData = {
       end_datetime: `${form.value.end_date}T${form.value.end_time}:00`,
       kwh_end: parseFloat(form.value.kwh_end),
       output_amount_kg: parseFloat(form.value.output_amount),
-      kwh_end_img_path: kwhUpload.path,
-      kwh_end_bucket_id: kwhUpload.bucket,
-      output_img_path: outputUpload.path,
-      output_bucket_id: outputUpload.bucket
+      kwh_end_images: kwhEndImagesArray,
+      output_images: outputImagesArray
     }
 
     const result = await processingStore.completeProcess(props.process.id, completionData)
+    
     if (result.success) {
       emit('save')
       closeModal()
@@ -158,6 +214,7 @@ const handleSubmit = async () => {
       error.value = result.error
     }
   } catch (err) {
+    console.error('❌ Complete error:', err)
     error.value = err.message || 'Error'
   } finally {
     loading.value = false

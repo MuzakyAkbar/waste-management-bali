@@ -16,8 +16,10 @@
     "@pinia/nuxt": "^0.5.1",
     "@supabase/supabase-js": "^2.39.0",
     "@vueuse/core": "^10.7.2",
+    "jspdf": "^3.0.4",
     "nuxt": "^3.10.0",
     "pinia": "^2.1.7",
+    "uuid": "^13.0.0",
     "vue": "^3.4.15"
   },
   "devDependencies": {

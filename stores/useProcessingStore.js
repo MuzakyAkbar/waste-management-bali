@@ -19,6 +19,11 @@ export const useProcessingStore = defineStore('processing', {
       this.error = null
       try {
         const supabase = useSupabaseClient()
+        const config = useRuntimeConfig()
+        const baseUrl = config.public.supabaseUrl
+
+        console.log('📥 Fetching processes...')
+
         const { data, error } = await supabase
           .from('SB_Processing')
           .select('*')
@@ -26,23 +31,42 @@ export const useProcessingStore = defineStore('processing', {
 
         if (error) throw error
 
-        this.processes = (data || []).map(item => ({
+        console.log('✅ Fetched processes:', data?.length || 0)
+
+        // ✅ Map processes and fetch materials
+        this.processes = await Promise.all((data || []).map(async (item) => {
+          console.log('🔍 Process item:', {
+            id: item.processing_id,
+            kwh_start_images: item.kwh_start_images,
+            kwh_end_images: item.kwh_end_images,
+            output_images: item.output_images
+          })
+
+          // ✅ Fetch materials untuk setiap process
+          const materials = await this.fetchMaterialsUsed(item.processing_id)
+
+          return {
             id: item.processing_id,
             activity_date: item.start_datetime,
             completed_at: item.end_datetime,
             input_amount: item.input_amount_kg,
             output_amount: item.output_amount_kg,
             kwh_start: item.kwh_start,
-            kwh_start_img: item.kwh_start_img_path, 
             kwh_end: item.kwh_end,
             kwh_used: item.kwh_used,
+            kwh_start_images: this.parseImages(item.kwh_start_images, baseUrl),
+            kwh_end_images: this.parseImages(item.kwh_end_images, baseUrl),
+            output_images: this.parseImages(item.output_images, baseUrl),
+            materials: materials, // ✅ Tambahkan materials
             status: item.end_datetime ? 'completed' : 'in_progress',
             notes: '-' 
+          }
         }))
+        
         this.calculateStatistics()
         return { success: true, data: this.processes }
       } catch (err) {
-        console.error(err)
+        console.error('❌ Fetch processes error:', err)
         this.error = err.message
         return { success: false, error: err.message }
       } finally {
@@ -50,38 +74,108 @@ export const useProcessingStore = defineStore('processing', {
       }
     },
 
+    parseImages(imagesData, baseUrl) {
+      if (!imagesData) {
+        console.log('⚠️ No images data')
+        return []
+      }
+      
+      try {
+        let parsed = imagesData
+        
+        // Jika string, parse dulu
+        if (typeof imagesData === 'string') {
+          parsed = JSON.parse(imagesData)
+        }
+        
+        // Jika bukan array, return kosong
+        if (!Array.isArray(parsed)) {
+          console.warn('⚠️ Images data is not an array:', typeof parsed)
+          return []
+        }
+
+        // Map dan ensure URL ada
+        return parsed.map(img => ({
+          url: img.url || `${baseUrl}/storage/v1/object/public/${img.bucket}/${img.path}`,
+          path: img.path,
+          bucket: img.bucket
+        }))
+      } catch (err) {
+        console.error('❌ Parse images error:', err)
+        return []
+      }
+    },
+
     async createProcess(processData) {
         this.loading = true
+        
         try {
             const supabase = useSupabaseClient()
             const userId = processData.created_by
-            if (!userId) throw new Error('User ID not found.')
-
-            let imagePath = null
-            let bucketId = null
-            if (processData.imageFile) {
-               const uploadRes = await this.uploadImage(processData.imageFile, 'kwh-start-images', 'temp') 
-               if (uploadRes.success) {
-                   imagePath = uploadRes.path
-                   bucketId = uploadRes.bucket
-               }
+            
+            console.log('🆕 Creating process with user:', userId)
+            
+            if (!userId) {
+              throw new Error('User ID not found')
             }
+
+            // ✅ PERBAIKAN: Upload image terlebih dahulu dengan ID temporary
+            let kwhStartImages = []
+            
+            if (processData.imageFile) {
+              console.log('📤 Uploading image:', processData.imageFile.name)
+              
+              // Upload dengan folder 'temp' dulu, nanti rename setelah dapat processing_id
+              const uploadRes = await this.uploadImage(
+                processData.imageFile, 
+                'kwh-start-images', 
+                'temp' // Folder temporary
+              )
+              
+              console.log('📤 Upload result:', uploadRes)
+              
+              if (uploadRes.success) {
+                kwhStartImages = [{
+                  url: uploadRes.url,
+                  path: uploadRes.path,
+                  bucket: uploadRes.bucket
+                }]
+                console.log('✅ Image uploaded:', kwhStartImages)
+              } else {
+                throw new Error('Failed to upload image: ' + uploadRes.error)
+              }
+            }
+
+            console.log('💾 Saving to database...')
 
             const payload = {
               created_by: userId, 
               start_datetime: processData.activity_date,
               kwh_start: processData.kwh_start || 0,
-              kwh_start_img_path: imagePath,
-              kwh_start_bucket_id: bucketId,
+              kwh_start_images: kwhStartImages, // ✅ Array of objects
               input_amount_kg: 0, 
             }
             
-            const { data, error } = await supabase.from('SB_Processing').insert([payload]).select().single()
-            if (error) throw error
+            console.log('📦 Payload:', JSON.stringify(payload, null, 2))
+            
+            const { data, error } = await supabase
+              .from('SB_Processing')
+              .insert([payload])
+              .select()
+              .single()
+              
+            if (error) {
+              console.error('❌ Insert error:', error)
+              throw error
+            }
+            
+            console.log('✅ Process created:', data)
             
             await this.fetchProcesses()
             return { success: true, data }
+            
         } catch(err) {
+            console.error('❌ Create process error:', err)
             this.error = err.message
             return { success: false, error: err.message }
         } finally {
@@ -92,15 +186,53 @@ export const useProcessingStore = defineStore('processing', {
     async uploadImage(file, bucketName, folderName) {
         try {
             const supabase = useSupabaseClient()
+            const config = useRuntimeConfig()
+            const baseUrl = config.public.supabaseUrl
+            
+            console.log('📤 Upload starting...')
+            console.log('  - File:', file.name, '(' + (file.size / 1024).toFixed(2) + ' KB)')
+            console.log('  - Bucket:', bucketName)
+            console.log('  - Folder:', folderName)
+            
             const fileExt = file.name.split('.').pop()
             const randomName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`
             const filePath = folderName ? `${folderName}/${randomName}` : randomName
 
-            const { data, error } = await supabase.storage.from(bucketName).upload(filePath, file, { upsert: false })
-            if (error) throw error
-            return { success: true, path: filePath, bucket: bucketName }
+            console.log('  - Path:', filePath)
+
+            const { data, error } = await supabase.storage
+              .from(bucketName)
+              .upload(filePath, file, { 
+                upsert: false,
+                contentType: file.type
+              })
+              
+            if (error) {
+              console.error('❌ Upload error:', error)
+              throw error
+            }
+
+            console.log('  - Upload data:', data)
+
+            // ✅ Generate public URL
+            const publicUrl = `${baseUrl}/storage/v1/object/public/${bucketName}/${filePath}`
+
+            console.log('✅ Upload success!')
+            console.log('  - URL:', publicUrl)
+
+            return { 
+              success: true, 
+              path: filePath, 
+              bucket: bucketName,
+              url: publicUrl
+            }
         } catch (err) { 
-            console.error('Upload error:', err)
+            console.error('❌ Upload error:', err)
+            console.error('  - Error details:', {
+              message: err.message,
+              statusCode: err.statusCode,
+              error: err.error
+            })
             return { success: false, error: err.message } 
         }
     },
@@ -109,32 +241,45 @@ export const useProcessingStore = defineStore('processing', {
          this.loading = true
          try {
             const supabase = useSupabaseClient()
+            
+            console.log('✅ Completing process:', id)
+            console.log('📦 Data:', data)
+            
             const updatePayload = {
               end_datetime: data.end_datetime,
               output_amount_kg: data.output_amount_kg,
               kwh_end: data.kwh_end,
-              kwh_end_img_path: data.kwh_end_img_path,
-              kwh_end_bucket_id: data.kwh_end_bucket_id,
-              output_img_path: data.output_img_path,
-              output_bucket_id: data.output_bucket_id
+              kwh_end_images: data.kwh_end_images || [],
+              output_images: data.output_images || []
             }
-            const { error } = await supabase.from('SB_Processing').update(updatePayload).eq('processing_id', id)
-            if (error) throw error
+
+            console.log('💾 Update payload:', JSON.stringify(updatePayload, null, 2))
+
+            const { error } = await supabase
+              .from('SB_Processing')
+              .update(updatePayload)
+              .eq('processing_id', id)
+              
+            if (error) {
+              console.error('❌ Update error:', error)
+              throw error
+            }
+            
+            console.log('✅ Process completed successfully')
+            
             await this.fetchProcesses()
             return { success: true }
          } catch(err) { 
+            console.error('❌ Complete process error:', err)
             return { success: false, error: err.message } 
          } finally { 
             this.loading = false 
          }
     },
     
-    // PERBAIKAN: Fetch Materials Used dengan struktur yang benar
     async fetchMaterialsUsed(processingId) {
       try {
         const supabase = useSupabaseClient()
-        
-        console.log('🔍 Fetching materials for process:', processingId)
         
         const { data, error } = await supabase
           .from('SB_Material_Used')
@@ -148,14 +293,8 @@ export const useProcessingStore = defineStore('processing', {
           `)
           .eq('processing_id', processingId)
         
-        if (error) {
-          console.error('❌ Fetch materials error:', error)
-          throw error
-        }
+        if (error) throw error
         
-        console.log('✅ Materials fetched:', data)
-        
-        // Return dengan format yang sesuai untuk ManageMaterialsModal
         return (data || []).map(m => ({
             used_id: m.used_id,
             material_id: m.material_id,
@@ -168,62 +307,52 @@ export const useProcessingStore = defineStore('processing', {
       }
     },
 
-    // PERBAIKAN: Save Materials dengan nama kolom yang benar
     async saveMaterialsUsed(processingId, materials) {
-  this.loading = true
-  try {
-    const supabase = useSupabaseClient()
+      this.loading = true
+      try {
+        const supabase = useSupabaseClient()
 
-    console.log('💾 Saving materials for process:', processingId, materials)
+        const { error: deleteError } = await supabase
+          .from('SB_Material_Used')
+          .delete()
+          .eq('processing_id', processingId)
+        
+        if (deleteError) throw deleteError
 
-    // 1. Hapus semua material lama untuk ID ini
-    const { error: deleteError } = await supabase
-      .from('SB_Material_Used')
-      .delete()
-      .eq('processing_id', processingId)
-    
-    if (deleteError) throw deleteError
+        if (materials.length > 0) {
+          const payload = materials.map(m => ({
+            processing_id: processingId,
+            material_id: m.material_id,
+            qty: parseFloat(m.qty)
+          }))
 
-    // 2. Insert data baru (jika ada)
-    if (materials.length > 0) {
-      const payload = materials.map(m => ({
-        processing_id: processingId,
-        material_id: m.material_id,
-        qty: parseFloat(m.qty)
-      }))
+          const { error: insertError } = await supabase
+            .from('SB_Material_Used')
+            .insert(payload)
+          
+          if (insertError) throw insertError
+        }
 
-      const { error: insertError } = await supabase
-        .from('SB_Material_Used')
-        .insert(payload)
-      
-      if (insertError) throw insertError
-    }
+        const totalInput = materials.reduce((sum, m) => 
+          sum + (parseFloat(m.qty) || 0), 0
+        )
 
-    // 3. Hitung Total
-    const totalInput = materials.reduce((sum, m) => 
-      sum + (parseFloat(m.qty) || 0), 0
-    )
+        const { error: updateError } = await supabase
+          .from('SB_Processing')
+          .update({ input_amount_kg: totalInput })
+          .eq('processing_id', processingId)
 
-    // 4. Update input_amount_kg di SB_Processing
-    const { error: updateError } = await supabase
-      .from('SB_Processing')
-      .update({ input_amount_kg: totalInput })
-      .eq('processing_id', processingId)
+        if (updateError) throw updateError
 
-    if (updateError) throw updateError
-
-    // 5. Refresh data
-    await this.fetchProcesses()
-    
-    console.log('✅ Materials saved successfully')
-    return { success: true }
-  } catch (err) {
-    console.error('❌ Save materials error:', err)
-    return { success: false, error: err.message }
-  } finally {
-    this.loading = false
-  }
-},
+        await this.fetchProcesses()
+        return { success: true }
+      } catch (err) {
+        console.error('❌ Save materials error:', err)
+        return { success: false, error: err.message }
+      } finally {
+        this.loading = false
+      }
+    },
 
     calculateStatistics() {
         const today = new Date().toISOString().split('T')[0]

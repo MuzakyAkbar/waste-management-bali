@@ -16,17 +16,31 @@
               <div class="mt-6 space-y-5">
                 <div>
                   <label class="block text-sm font-semibold text-gray-700 mb-2">Start Date & Time</label>
-                  <input type="datetime-local" v-model="form.activity_date" class="block w-full border-gray-300 rounded-lg shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm p-2.5 border" />
+                  <input 
+                    type="datetime-local" 
+                    v-model="form.activity_date" 
+                    class="block w-full border-gray-300 rounded-lg shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm p-2.5 border" 
+                  />
                 </div>
 
                 <div>
                   <label class="block text-sm font-semibold text-gray-700 mb-2">Electricity Meter (Start KWh)</label>
-                  <input type="number" step="0.1" v-model="form.kwh_start" class="block w-full border-gray-300 rounded-lg shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm p-2.5 border" placeholder="0.0" />
+                  <input 
+                    type="number" 
+                    step="0.1" 
+                    v-model="form.kwh_start" 
+                    class="block w-full border-gray-300 rounded-lg shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm p-2.5 border" 
+                    placeholder="0.0" 
+                  />
                 </div>
 
                 <div>
                   <label class="block text-sm font-semibold text-gray-700 mb-2">Activity / Meter Photo (Start)</label>
-                  <ImageUpload :max-images="1" label="Upload Foto KWh Awal" @images-changed="handleImageChanged" />
+                  <ImageUpload 
+                    :max-images="1" 
+                    label="Upload Foto KWh Awal" 
+                    @images-changed="handleImageChanged" 
+                  />
                   <p v-if="uploadError" class="mt-1 text-xs text-red-600">{{ uploadError }}</p>
                 </div>
               </div>
@@ -35,14 +49,24 @@
         </div>
         
         <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-          <button type="button" class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-primary-600 text-base font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed items-center" :disabled="loading" @click="handleSubmit">
+          <button 
+            type="button" 
+            class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-primary-600 text-base font-medium text-white hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed items-center" 
+            :disabled="loading" 
+            @click="handleSubmit"
+          >
             <svg v-if="loading" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
             {{ loading ? 'Saving...' : 'Create Activity' }}
           </button>
-          <button type="button" class="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm" @click="$emit('close')" :disabled="loading">
+          <button 
+            type="button" 
+            class="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm" 
+            @click="$emit('close')" 
+            :disabled="loading"
+          >
             Cancel
           </button>
         </div>
@@ -84,42 +108,68 @@ const handleSubmit = async () => {
     return
   }
 
+  // 2. Validasi KWh Start
+  if (!form.value.kwh_start || parseFloat(form.value.kwh_start) <= 0) {
+    uploadError.value = 'Mohon isi nilai KWh Start yang valid.'
+    return
+  }
+
   loading.value = true
   
-  // 2. AMBIL USER ID DENGAN AMAN
-  // Cek berbagai kemungkinan struktur object user dari Supabase/Pinia
+  // 3. AMBIL USER ID DENGAN AMAN
   let userId = null
   
   if (authStore.user) {
-    // Jika user adalah object, cek properti id atau user_id
-    userId = authStore.user.id || authStore.user.user_id 
+    // Cek properti user_id atau id
+    userId = authStore.user.user_id || authStore.user.id
   } else {
-    // Jika user null, coba cek local storage sebagai fallback terakhir
-    // (Hanya jika Anda menyimpan user di localStorage)
+    // Fallback ke localStorage jika state kosong
     try {
       const storedUser = JSON.parse(localStorage.getItem('user'))
-      if (storedUser) userId = storedUser.id || storedUser.user_id
+      if (storedUser) userId = storedUser.user_id || storedUser.id
     } catch (e) {
-      console.error('Failed to parse user from storage', e)
+      console.error('❌ Failed to parse user from storage', e)
     }
   }
   
-  // 3. Validasi User ID
+  // 4. Validasi User ID
   if (!userId) {
-    alert('Sesi Anda telah berakhir atau data user tidak ditemukan. Silakan login ulang.')
+    alert('⚠️ Sesi Anda telah berakhir atau data user tidak ditemukan. Silakan login ulang.')
     loading.value = false
-    return // Stop di sini, jangan lanjut kirim event
+    return
   }
 
-  // 4. Kirim Data
+  console.log('✅ User ID found:', userId)
+  console.log('📤 Submitting with data:', {
+    activity_date: form.value.activity_date,
+    kwh_start: form.value.kwh_start,
+    imageFile: selectedFile.value.name,
+    created_by: userId
+  })
+
+  // 5. Kirim Data
+  // Store akan handle upload ke bucket 'kwh-start-images' dengan folder userId atau 'temp'
   emit('save', {
     activity_date: new Date(form.value.activity_date).toISOString(),
     kwh_start: parseFloat(form.value.kwh_start) || 0,
     imageFile: selectedFile.value,
-    created_by: userId // Pastikan ini string UUID yang valid
+    created_by: userId
   })
   
-  // Safety timeout
-  setTimeout(() => { loading.value = false }, 5000) 
+  // Safety timeout untuk reset loading jika ada masalah
+  setTimeout(() => { 
+    loading.value = false 
+  }, 5000) 
 }
 </script>
+
+<style scoped>
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+</style>
