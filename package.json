@@ -17,10 +17,12 @@
     "@supabase/supabase-js": "^2.39.0",
     "@vueuse/core": "^10.7.2",
     "jspdf": "^3.0.4",
+    "jspdf-autotable": "^5.0.2",
     "nuxt": "^3.10.0",
     "pinia": "^2.1.7",
     "uuid": "^13.0.0",
-    "vue": "^3.4.15"
+    "vue": "^3.4.15",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@nuxtjs/color-mode": "^3.3.2",

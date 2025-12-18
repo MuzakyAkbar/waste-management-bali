@@ -8,7 +8,7 @@ export const useProcessingStore = defineStore('processing', {
     statistics: {
       totalProcesses: 0,
       activeProcesses: 0,
-      completedToday: 0,
+      totalCompleted: 0,
       totalOutput: 0,
     },
     lastFetch: null, // ✅ Track last fetch time
@@ -188,11 +188,7 @@ export const useProcessingStore = defineStore('processing', {
             await this.fetchProcesses(true) // Force refresh
             return { success: true, data }
             
-        } catch(err) {
-            console.error('❌ Create process error:', err)
-            this.error = err.message
-            return { success: false, error: err.message }
-        } finally {
+        }  finally {
             this.loading = false
         }
     },
@@ -407,13 +403,17 @@ export const useProcessingStore = defineStore('processing', {
     },
 
     calculateStatistics() {
-        const today = new Date().toISOString().split('T')[0]
-        this.statistics = {
-            totalProcesses: this.processes.length,
-            activeProcesses: this.processes.filter(p => p.status === 'in_progress').length,
-            completedToday: this.processes.filter(p => p.status === 'completed' && p.completed_at?.split('T')[0] === today).length,
-            totalOutput: this.processes.filter(p => p.status === 'completed').reduce((sum, p) => sum + (parseFloat(p.output_amount) || 0), 0)
-        }
+    this.statistics = {
+        totalProcesses: this.processes.length,
+        activeProcesses: this.processes.filter(p => p.status === 'in_progress').length,
+        
+        // PERBAIKAN: Hitung total semua yang statusnya 'completed' tanpa melihat tanggal
+        totalCompleted: this.processes.filter(p => p.status === 'completed').length,
+
+        totalOutput: this.processes
+            .filter(p => p.status === 'completed')
+            .reduce((sum, p) => sum + (parseFloat(p.output_amount) || 0), 0)
     }
+}
   }
 })

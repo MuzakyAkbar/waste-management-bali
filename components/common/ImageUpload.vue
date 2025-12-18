@@ -498,6 +498,7 @@ const takePhoto = () => {
     const canvas = canvasElement.value
     const context = canvas.getContext('2d')
 
+    // ... (Logika perhitungan rasio/crop biarkan saja seperti sebelumnya) ...
     const targetRatio = 3 / 4
     const videoWidth = video.videoWidth
     const videoHeight = video.videoHeight
@@ -531,15 +532,23 @@ const takePhoto = () => {
       0, 0, sourceWidth, sourceHeight
     )
 
+    // === BAGIAN YANG DIUBAH ADA DI SINI ===
+    
+    // Ganti 'image/png' menjadi 'image/jpeg' dan tambahkan quality 0.7 (70%)
     canvas.toBlob(async (blob) => {
       if (blob) {
-        const photoFile = new File([blob], `photo_${Date.now()}.png`, { type: 'image/png' })
+        // Ubah ekstensi nama file jadi .jpg dan type jadi image/jpeg
+        const photoFile = new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' })
+        
+        // Cek ukuran file (Opsional, untuk debugging)
+        console.log('Ukuran file kamera:', (photoFile.size / 1024 / 1024).toFixed(2), 'MB')
+
         await processFile(photoFile)
         closeCamera()
       } else {
         alert('Gagal mengambil foto')
       }
-    }, 'image/png')
+    }, 'image/jpeg', 0.7) // <--- Parameter ketiga adalah kualitas (0.0 - 1.0)
   }
 }
 

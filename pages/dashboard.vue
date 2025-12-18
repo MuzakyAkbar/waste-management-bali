@@ -59,7 +59,7 @@
             </div>
           </div>
           <h3 class="text-3xl font-bold text-gray-900 mb-1">
-            {{ completedToday }}
+            {{ totalCompleted }}
           </h3>
           <p class="text-sm text-gray-500 font-medium">Completed</p>
         </div>
@@ -134,7 +134,7 @@ const router = useRouter()
 // Computed properties untuk menghindari error di template
 const totalProcesses = computed(() => processingStore.statistics?.totalProcesses || 0)
 const activeProcesses = computed(() => processingStore.statistics?.activeProcesses || 0)
-const completedToday = computed(() => processingStore.statistics?.completedToday || 0)
+const totalCompleted = computed(() => processingStore.statistics?.totalCompleted || 0)
 const totalOutputFormatted = computed(() => {
   const output = processingStore.statistics?.totalOutput || 0
   return output.toFixed(1)
