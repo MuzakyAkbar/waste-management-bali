@@ -42,11 +42,11 @@
     </div>
 
     <div v-else class="flex-1 bg-gray-50/50">
-      <!-- Desktop View -->
       <div class="hidden lg:block overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Process Name</th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Date & Time</th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Input (kg)</th>
               <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Output (kg)</th>
@@ -55,12 +55,17 @@
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            <template v-for="process in processes" :key="process.id">
+            <template v-for="process in sortedProcesses" :key="process.id">
               <tr class="hover:bg-gray-50 transition-colors group">
+                <td class="px-6 py-4">
+                  <span class="text-sm font-bold text-gray-900">{{ process.process_name }}</span>
+                </td>
+
                 <td class="px-6 py-4 whitespace-nowrap">
                   <div class="flex flex-col">
-                    <span class="text-sm font-semibold text-gray-900">{{ formatDate(process.activity_date) }}</span>
-                    <span class="text-xs text-gray-500">{{ formatTime(process.activity_date) }}</span>
+                    <span v-if="process.activity_date" class="text-sm font-semibold text-gray-900">{{ formatDate(process.activity_date) }}</span>
+                    <span v-else class="text-sm text-gray-400 italic">Not started</span>
+                    <span v-if="process.activity_date" class="text-xs text-gray-500">{{ formatTime(process.activity_date) }}</span>
                   </div>
                 </td>
 
@@ -75,7 +80,10 @@
                 </td>
 
                 <td class="px-6 py-4 whitespace-nowrap">
-                  <span v-if="process.status === 'in_progress'" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                  <span v-if="process.status === 'created'" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                    Created
+                  </span>
+                  <span v-else-if="process.status === 'in_progress'" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                     In Progress
                   </span>
                   <span v-else class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -86,7 +94,15 @@
                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <div class="flex items-center justify-end gap-2">
                     <button
-                      v-if="process.status === 'in_progress'"
+                      v-if="process.status === 'created'"
+                      @click="$emit('input-kwh', process)"
+                      class="text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 rounded-md transition text-xs font-semibold shadow-sm"
+                    >
+                      ⚡ Input KWh
+                    </button>
+
+                    <button
+                      v-if="process.status === 'created' || process.status === 'in_progress'"
                       @click="$emit('manage-materials', process.id)"
                       class="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-md transition text-xs font-semibold"
                     >
@@ -102,7 +118,7 @@
                     </button>
                     
                     <button
-                      v-else
+                      v-if="process.status === 'completed'"
                       @click="toggleDetails(process.id)"
                       class="text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-md transition text-xs font-semibold"
                     >
@@ -128,16 +144,14 @@
               </tr>
 
               <tr v-if="expandedRows.includes(process.id) && process.status === 'completed'" class="bg-gray-50/50">
-                <td colspan="5" class="px-6 py-8">
+                <td colspan="6" class="px-6 py-8">
                   <div class="bg-white border-2 border-gray-300 rounded-lg p-8 shadow-md max-w-6xl mx-auto">
                     
                     <div class="mb-8 pb-4 border-b-4 border-gray-800">
                       <div class="flex justify-between items-end">
                         <div>
-                          <h4 class="text-2xl font-black text-gray-900 uppercase tracking-tighter">Laporan Pengolahan Sampah</h4>
-                          <p class="text-md font-bold text-gray-600">
-                            ID Laporan: {{ process.id }}
-                          </p>
+                          <h4 class="text-2xl font-black text-gray-900 uppercase tracking-tighter">{{ process.process_name }}</h4>
+                          <p class="text-md font-bold text-gray-600">ID Laporan: {{ process.id }}</p>
                           <p class="text-sm font-semibold text-gray-500 mt-1">
                             Tgl: {{ formatDateSimple(process.activity_date) }} | Durasi: {{ formatDuration(process) }}
                           </p>
@@ -160,8 +174,9 @@
                             <th class="border-2 border-gray-800 px-3 py-2 text-center font-bold">Awal</th>
                             <th class="border-2 border-gray-800 px-3 py-2 text-center font-bold">Akhir</th>
                             <th class="border-2 border-gray-800 px-3 py-2 text-center font-bold text-red-600">Pemakaian</th>
-                            <th v-for="matName in getUniqueMaterials(process)" :key="matName" class="border-2 border-gray-800 px-3 py-2 text-center font-bold">
-                              {{ matName }} (Kg)
+                            <th v-for="mat in getUniqueMaterials(process)" :key="mat.name" class="border-2 border-gray-800 px-3 py-2 text-center font-bold">
+                              {{ mat.name }}<br>
+                              <span class="text-xs font-normal text-gray-500">Ember #{{ mat.container }}</span>
                             </th>
                           </tr>
                         </thead>
@@ -173,8 +188,9 @@
                               {{ (process.kwh_end - process.kwh_start).toFixed(2) }}
                             </td>
                             
-                            <td v-for="matName in getUniqueMaterials(process)" :key="matName" class="border-2 border-gray-800 px-4 py-6 text-center font-medium">
-                              {{ getMaterialQty(process, matName) }}
+                            <td v-for="mat in getUniqueMaterials(process)" :key="mat.key" class="border-2 border-gray-800 px-4 py-6 text-center">
+                              <div class="font-medium">{{ mat.qty }}</div>
+                              <div v-if="mat.content" class="text-xs text-gray-500 mt-1">{{ mat.content }}</div>
                             </td>
                             
                             <td class="border-2 border-gray-800 px-4 py-6 text-center font-black text-green-700 bg-green-100">
@@ -218,7 +234,7 @@
                       </div>
                     </div>
 
-                    <div v-if="process.notes" class="mt-10 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded">
+                    <div v-if="process.notes && process.notes !== '-'" class="mt-10 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded">
                       <p class="text-xs font-black text-yellow-800 uppercase mb-1">Keterangan / Catatan:</p>
                       <p class="text-sm text-yellow-900 leading-relaxed">{{ process.notes }}</p>
                     </div>
@@ -231,17 +247,26 @@
         </table>
       </div>
 
-      <!-- Mobile View -->
       <div class="lg:hidden space-y-4 p-4">
-        <div v-for="process in processes" :key="`mobile-${process.id}`" class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div v-for="process in sortedProcesses" :key="`mobile-${process.id}`" class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           <div class="p-4 border-b border-gray-100">
             <div class="flex items-center justify-between mb-2">
-              <span class="text-xs font-bold text-gray-500 uppercase">{{ formatDate(process.activity_date) }}</span>
-              <span :class="process.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium">
-                {{ process.status === 'in_progress' ? 'In Progress' : 'Completed' }}
+              <span class="text-sm font-bold text-gray-900">{{ process.process_name }}</span>
+              <span 
+                :class="{
+                  'bg-gray-100 text-gray-800': process.status === 'created',
+                  'bg-yellow-100 text-yellow-800': process.status === 'in_progress',
+                  'bg-green-100 text-green-800': process.status === 'completed'
+                }" 
+                class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+              >
+                {{ process.status === 'created' ? 'Created' : process.status === 'in_progress' ? 'In Progress' : 'Completed' }}
               </span>
             </div>
-            <p class="text-xs text-gray-500">{{ formatTime(process.activity_date) }}</p>
+            <div v-if="process.activity_date" class="text-xs text-gray-500">
+              {{ formatDate(process.activity_date) }} {{ formatTime(process.activity_date) }}
+            </div>
+            <div v-else class="text-xs text-gray-400 italic">Not started yet</div>
           </div>
 
           <div class="p-4 space-y-3 text-sm">
@@ -259,46 +284,66 @@
             </div>
           </div>
 
-          <div class="p-3 bg-gray-50 border-t border-gray-100 flex flex-wrap gap-2">
-            <button 
-              v-if="process.status === 'in_progress'" 
-              @click="$emit('complete', process)" 
-              class="flex-1 bg-primary-600 text-white py-2 rounded-md text-xs font-bold"
-            >
-              Complete
-            </button>
-            
-            <button 
-              v-if="process.status === 'completed'"
-              @click="toggleDetails(process.id)" 
-              class="flex-1 bg-gray-200 text-gray-800 py-2 rounded-md text-xs font-bold"
-            >
-              {{ expandedRows.includes(process.id) ? 'Hide Details' : 'Show Details' }}
-            </button>
+          <div class="p-3 bg-gray-50 border-t border-gray-100 flex flex-col gap-2">
+            <div v-if="process.status === 'created'" class="flex flex-col gap-2">
+              <button 
+                @click="$emit('input-kwh', process)" 
+                class="w-full bg-emerald-600 text-white py-2 rounded-md text-xs font-bold shadow-sm"
+              >
+                ⚡ Input KWh Start
+              </button>
+              <button 
+                @click="$emit('manage-materials', process.id)" 
+                class="w-full bg-blue-600 text-white py-2 rounded-md text-xs font-bold"
+              >
+                + Add Materials
+              </button>
+            </div>
 
-            <button
-              v-if="process.status === 'completed'"
-              @click="exportPDF(process)"
-              class="flex-1 bg-red-50 text-red-600 py-2 rounded-md text-xs font-bold"
-            >
-              PDF
-            </button>
-            <button
-              v-if="process.status === 'completed'"
-              @click="exportExcel(process)"
-              class="flex-1 bg-green-50 text-green-600 py-2 rounded-md text-xs font-bold"
-            >
-              Excel
-            </button>
+            <div v-if="process.status === 'in_progress'" class="flex flex-col gap-2">
+              <button 
+                @click="$emit('manage-materials', process.id)" 
+                class="w-full bg-blue-600 text-white py-2 rounded-md text-xs font-bold"
+              >
+                + Manage Materials
+              </button>
+              <button 
+                @click="$emit('complete', process)" 
+                class="w-full bg-primary-600 text-white py-2 rounded-md text-xs font-bold"
+              >
+                Complete Process
+              </button>
+            </div>
+
+            <div v-if="process.status === 'completed'" class="flex flex-col gap-2">
+              <button 
+                @click="toggleDetails(process.id)" 
+                class="w-full bg-gray-200 text-gray-800 py-2 rounded-md text-xs font-bold"
+              >
+                {{ expandedRows.includes(process.id) ? 'Hide Details' : 'Show Details' }}
+              </button>
+              <div class="grid grid-cols-2 gap-2">
+                <button
+                  @click="exportPDF(process)"
+                  class="bg-red-50 text-red-600 py-2 rounded-md text-xs font-bold"
+                >
+                  📄 PDF
+                </button>
+                <button
+                  @click="exportExcel(process)"
+                  class="bg-green-50 text-green-600 py-2 rounded-md text-xs font-bold"
+                >
+                  📊 Excel
+                </button>
+              </div>
+            </div>
           </div>
 
-          <!-- Mobile Details View -->
           <div v-if="expandedRows.includes(process.id) && process.status === 'completed'" class="p-4 bg-gray-50 border-t border-gray-200">
             <div class="bg-white border border-gray-300 rounded-lg p-4">
-              <h4 class="text-lg font-bold text-gray-900 mb-2">Detail Pengolahan</h4>
+              <h4 class="text-lg font-bold text-gray-900 mb-2">{{ process.process_name }}</h4>
               <p class="text-xs text-gray-500 mb-4">ID: {{ process.id }} | Durasi: {{ formatDuration(process) }}</p>
               
-              <!-- KWh Info -->
               <div class="mb-4">
                 <h5 class="font-bold text-sm mb-2 text-gray-700">KWh</h5>
                 <div class="grid grid-cols-3 gap-2 text-xs">
@@ -317,18 +362,22 @@
                 </div>
               </div>
 
-              <!-- Materials Info -->
               <div class="mb-4">
                 <h5 class="font-bold text-sm mb-2 text-gray-700">Bahan Masuk</h5>
                 <div class="space-y-2 text-xs">
-                  <div v-for="matName in getUniqueMaterials(process)" :key="matName" class="bg-blue-50 p-2 rounded flex justify-between">
-                    <span>{{ matName }}</span>
-                    <span class="font-bold">{{ getMaterialQty(process, matName) }} kg</span>
+                  <div v-for="mat in getUniqueMaterials(process)" :key="mat.key" class="bg-blue-50 p-2 rounded">
+                    <div class="flex justify-between items-start">
+                      <div class="flex-1">
+                        <span class="font-bold">{{ mat.name }}</span>
+                        <span class="text-gray-500 ml-1">(Ember #{{ mat.container }})</span>
+                        <div v-if="mat.content" class="text-gray-600 text-xs mt-1">{{ mat.content }}</div>
+                      </div>
+                      <span class="font-bold text-blue-700">{{ mat.qty }} kg</span>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <!-- Result -->
               <div class="mb-4">
                 <h5 class="font-bold text-sm mb-2 text-gray-700">Hasil</h5>
                 <div class="bg-green-50 p-3 rounded text-center">
@@ -336,7 +385,6 @@
                 </div>
               </div>
 
-              <!-- Images -->
               <div class="space-y-3">
                 <div>
                   <p class="text-xs font-bold mb-1">KWh Awal:</p>
@@ -352,8 +400,7 @@
                 </div>
               </div>
 
-              <!-- Notes -->
-              <div v-if="process.notes" class="mt-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded">
+              <div v-if="process.notes && process.notes !== '-'" class="mt-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded">
                 <p class="text-xs font-bold text-yellow-800 mb-1">Keterangan:</p>
                 <p class="text-xs text-yellow-900">{{ process.notes }}</p>
               </div>
@@ -366,7 +413,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue' // Ditambahkan 'computed'
 import ImageGalleryViewer from '~/components/common/ImageGalleryViewer.vue'
 import { useProcessingStore } from '~/stores/useProcessingStore'
 import * as XLSX from 'xlsx'
@@ -376,31 +423,53 @@ const props = defineProps({
   loading: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['complete', 'add-new', 'manage-materials'])
+const emit = defineEmits(['complete', 'add-new', 'manage-materials', 'input-kwh'])
 
 const processingStore = useProcessingStore()
 const expandedRows = ref([])
 const loadingMaterials = ref(null)
 
+// --- Sorting Logic Added Here ---
+const sortedProcesses = computed(() => {
+  if (!props.processes) return []
+  // Copy array dan urutkan descending (Terbaru -> Terlama)
+  return [...props.processes].sort((a, b) => {
+    const dateA = new Date(a.activity_date || 0)
+    const dateB = new Date(b.activity_date || 0)
+    return dateB - dateA
+  })
+})
+// --------------------------------
+
 const formatDateSimple = (dt) => dt ? new Date(dt).toLocaleDateString('id-ID') : '-'
 const formatNumber = (num) => num ? parseFloat(num).toFixed(2) : '0.00'
 
-const formatDateTimeFull = (dt) => {
+const formatDate = (dt) => {
   if (!dt) return '-'
-  const date = new Date(dt)
-  return date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) + 
-         ' ' + date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+  return new Date(dt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
+const formatTime = (dt) => {
+  if (!dt) return '-'
+  return new Date(dt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+}
+
+const formatDuration = (p) => {
+  if (!p.activity_date || !p.completed_at) return '-'
+  const hrs = Math.abs(new Date(p.completed_at) - new Date(p.activity_date)) / 36e5
+  return `${hrs.toFixed(0)} jam`
+}
+
+// ✅ Get unique materials dengan container info
 const getUniqueMaterials = (process) => {
   const materials = getMaterials(process)
-  return [...new Set(materials.map(m => m.material_name))]
-}
-
-const getMaterialQty = (process, name) => {
-  const materials = getMaterials(process)
-  const found = materials.find(m => m.material_name === name)
-  return found ? parseFloat(found.qty).toFixed(2) : '0.00'
+  return materials.map((m, idx) => ({
+    key: `${m.material_id}-${m.container_number}`,
+    name: m.material_name,
+    container: m.container_number || idx + 1,
+    content: m.container_content || '',
+    qty: parseFloat(m.qty).toFixed(2)
+  }))
 }
 
 const getMaterials = (process) => {
@@ -409,7 +478,10 @@ const getMaterials = (process) => {
   }
   if (process.SB_Material_Used && Array.isArray(process.SB_Material_Used)) {
     return process.SB_Material_Used.map(item => ({
+      material_id: item.material_id,
       material_name: item.SB_Material?.material_name || item.material_name || 'Material',
+      container_number: item.container_number || 1,
+      container_content: item.container_content || '',
       qty: item.qty
     }))
   }
@@ -440,54 +512,48 @@ const exportExcel = async (process) => {
     const uniqueMats = getUniqueMaterials(process)
     const matCols = uniqueMats.length
     
-    // Build table data matching the display
     const wsData = [
-      ['Percobaan I', '', '', '', '', '', ''],
+      [process.process_name],
+      [`ID: ${process.id}`],
       [`Tgl: ${formatDateSimple(process.activity_date)}`, '', '', '', '', '', `${formatDuration(process)}`],
       ['', '', '', '', '', '', ''],
       ['', 'Kwh', '', '', 'Bahan Masuk', ...Array(matCols - 1).fill(''), 'Hasil (Kg)'],
-      ['Awal', 'Akhir', 'Pemakaian', ...uniqueMats.map(m => `${m} (Kg)`), '']
+      ['Awal', 'Akhir', 'Pemakaian', ...uniqueMats.map(m => `${m.name} (Ember #${m.container})`), '']
     ]
 
-    // Data row
     const dataRow = [
       process.kwh_start,
       process.kwh_end,
       kwhUsage,
-      ...uniqueMats.map(m => getMaterialQty(process, m)),
+      ...uniqueMats.map(m => m.qty),
       formatNumber(process.output_amount)
     ]
     wsData.push(dataRow)
     
-    // Total row
-    const totalRow = ['', '', '', ...uniqueMats.map(m => getMaterialQty(process, m)), formatNumber(process.output_amount)]
-    wsData.push(totalRow)
+    const grandTotal = uniqueMats.reduce((sum, m) => sum + parseFloat(m.qty), 0).toFixed(2)
+    wsData.push(['', '', '', ...Array(matCols).fill(''), `Total: ${grandTotal} kg`])
     
-    // Grand total
-    const grandTotal = uniqueMats.reduce((sum, m) => sum + parseFloat(getMaterialQty(process, m)), 0).toFixed(2)
-    const totalTextRow = ['', '', '', ...Array(matCols - 1).fill(''), `Total: ${grandTotal}`, '']
-    wsData.push(totalTextRow)
-    
-    if (process.notes) {
+    if (uniqueMats.some(m => m.content)) {
       wsData.push(['', '', '', '', '', '', ''])
-      wsData.push(['Keterangan', '', '', '', '', '', ''])
+      wsData.push(['Keterangan Isi Ember:', '', '', '', '', '', ''])
+      uniqueMats.forEach(m => {
+        if (m.content) {
+          wsData.push([`Ember #${m.container} (${m.name}):`, m.content, '', '', '', '', ''])
+        }
+      })
+    }
+    
+    if (process.notes && process.notes !== '-') {
+      wsData.push(['', '', '', '', '', '', ''])
+      wsData.push(['Catatan:', '', '', '', '', '', ''])
       wsData.push([process.notes, '', '', '', '', '', ''])
     }
 
     const wb = XLSX.utils.book_new()
     const ws = XLSX.utils.aoa_to_sheet(wsData)
-
     ws['!cols'] = Array(7).fill({ wch: 15 })
-    
-    ws['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } }, // Title
-      { s: { r: 3, c: 1 }, e: { r: 3, c: 2 } }, // Kwh
-      { s: { r: 3, c: 4 }, e: { r: 3, c: 3 + matCols } }, // Bahan Masuk
-      { s: { r: 3, c: 4 + matCols }, e: { r: 4, c: 4 + matCols } } // Hasil
-    ]
-
     XLSX.utils.book_append_sheet(wb, ws, 'Laporan')
-    XLSX.writeFile(wb, `Laporan_${formatDateSimple(process.activity_date).replace(/\//g, '-')}.xlsx`)
+    XLSX.writeFile(wb, `${process.process_name.replace(/\s+/g, '_')}_${formatDateSimple(process.activity_date).replace(/\//g, '-')}.xlsx`)
   } catch (err) {
     console.error('Error exporting Excel:', err)
     alert('Gagal export Excel')
@@ -496,11 +562,9 @@ const exportExcel = async (process) => {
 
 const exportPDF = async (process) => {
   try {
-    // FETCH MATERIALS FIRST if not loaded
     const currentMaterials = getMaterials(process)
     if (!currentMaterials || currentMaterials.length === 0) {
       await processingStore.fetchMaterialsForProcess(process.id)
-      // Re-fetch the updated process data
       const updatedProcess = props.processes.find(p => p.id === process.id)
       if (updatedProcess) {
         process = updatedProcess
@@ -516,13 +580,13 @@ const exportPDF = async (process) => {
     const tableWidth = rightMargin - leftMargin
     let y = 20
 
-    // ========== HEADER ==========
+    // Header
     doc.setFontSize(18).setFont(undefined, 'bold')
-    doc.text('LAPORAN PENGOLAHAN SAMPAH', leftMargin, y)
+    doc.text(process.process_name.toUpperCase(), leftMargin, y)
     y += 8
     
     doc.setFontSize(10).setFont(undefined, 'normal')
-    doc.text(`ID Laporan: ${process.id}`, leftMargin, y)
+    doc.text(`ID: ${process.id}`, leftMargin, y)
     y += 6
     
     doc.text(`Tgl: ${formatDateSimple(process.activity_date)} | Durasi: ${formatDuration(process)}`, leftMargin, y)
@@ -535,13 +599,11 @@ const exportPDF = async (process) => {
     doc.line(leftMargin, y, rightMargin, y)
     y += 15
 
-    // ========== TABLE ==========
+    // Table
     const uniqueMats = getUniqueMaterials(process)
     const kwhUsage = (process.kwh_end - process.kwh_start).toFixed(2)
     
     const numMaterials = uniqueMats.length
-    
-    // Fixed column widths
     const colAwal = 25
     const colAkhir = 25
     const colPemakaian = 30
@@ -558,87 +620,76 @@ const exportPDF = async (process) => {
     doc.setDrawColor(0, 0, 0)
     doc.setTextColor(0, 0, 0)
 
-    // ===== ROW 1: Main Headers =====
+    // ROW 1: Main Headers
     let x = leftMargin
     
-    // KWH Header
     doc.rect(x, y, kwhTotalWidth, row1H, 'D')
     doc.setFontSize(11).setFont(undefined, 'bold')
     doc.text('KWH', x + kwhTotalWidth/2, y + 8, { align: 'center' })
     x += kwhTotalWidth
     
-    // BAHAN MASUK Header
     if (numMaterials > 0) {
       doc.rect(x, y, remainingWidth, row1H, 'D')
       doc.text('BAHAN MASUK', x + remainingWidth/2, y + 8, { align: 'center' })
       x += remainingWidth
     }
     
-    // HASIL (KG) Header (rowspan 2)
     doc.rect(x, y, colHasil, row1H + row2H, 'D')
     doc.setFontSize(10)
     doc.text('HASIL (KG)', x + colHasil/2, y + 13, { align: 'center' })
     
     y += row1H
 
-    // ===== ROW 2: Sub Headers =====
+    // ROW 2: Sub Headers
     x = leftMargin
     doc.setFontSize(9).setFont(undefined, 'bold')
     
-    // Awal
     doc.rect(x, y, colAwal, row2H, 'D')
     doc.text('Awal', x + colAwal/2, y + 8, { align: 'center' })
     x += colAwal
     
-    // Akhir
     doc.rect(x, y, colAkhir, row2H, 'D')
     doc.text('Akhir', x + colAkhir/2, y + 8, { align: 'center' })
     x += colAkhir
     
-    // Pemakaian
     doc.rect(x, y, colPemakaian, row2H, 'D')
     doc.text('Pemakaian', x + colPemakaian/2, y + 8, { align: 'center' })
     x += colPemakaian
     
-    // Material sub-headers
-    doc.setFontSize(8)
-    uniqueMats.forEach(matName => {
+    doc.setFontSize(7)
+    uniqueMats.forEach(mat => {
       doc.rect(x, y, colMaterial, row2H, 'D')
-      const lines = doc.splitTextToSize(`${matName} (Kg)`, colMaterial - 4)
-      const textY = y + (lines.length === 1 ? 8 : 6)
+      const lines = doc.splitTextToSize(`${mat.name}\nEmber #${mat.container}`, colMaterial - 4)
+      const textY = y + 5
       doc.text(lines, x + colMaterial/2, textY, { align: 'center' })
       x += colMaterial
     })
     
     y += row2H
 
-    // ===== ROW 3: Data =====
+    // ROW 3: Data
     x = leftMargin
     doc.setFontSize(11).setFont(undefined, 'normal')
     
-    // KWH Awal
     doc.rect(x, y, colAwal, row3H, 'D')
     doc.text(String(process.kwh_start), x + colAwal/2, y + 9.5, { align: 'center' })
     x += colAwal
     
-    // KWH Akhir
     doc.rect(x, y, colAkhir, row3H, 'D')
     doc.text(String(process.kwh_end), x + colAkhir/2, y + 9.5, { align: 'center' })
     x += colAkhir
     
-    // KWH Pemakaian
     doc.rect(x, y, colPemakaian, row3H, 'D')
     doc.text(kwhUsage, x + colPemakaian/2, y + 9.5, { align: 'center' })
     x += colPemakaian
     
-    // Materials data
-    uniqueMats.forEach(matName => {
+    uniqueMats.forEach(mat => {
       doc.rect(x, y, colMaterial, row3H, 'D')
-      doc.text(getMaterialQty(process, matName), x + colMaterial/2, y + 9.5, { align: 'center' })
+      doc.setFontSize(10)
+      doc.text(mat.qty, x + colMaterial/2, y + 9.5, { align: 'center' })
       x += colMaterial
     })
     
-    // HASIL data
     doc.rect(x, y, colHasil, row3H, 'D')
     doc.setFont(undefined, 'bold')
     doc.setFontSize(13)
@@ -647,7 +698,26 @@ const exportPDF = async (process) => {
     
     y += row3H + 12
 
-    // ========== DOKUMENTASI VISUAL ==========
+    // Keterangan Isi Ember
+    if (uniqueMats.some(m => m.content)) {
+      if (y > 240) {
+        doc.addPage()
+        y = 20
+      }
+      doc.setFontSize(10).setFont(undefined, 'bold')
+      doc.text('KETERANGAN ISI EMBER', leftMargin, y)
+      y += 6
+      doc.setFontSize(8).setFont(undefined, 'normal')
+      uniqueMats.forEach(mat => {
+        if (mat.content) {
+          doc.text(`• Ember #${mat.container} (${mat.name}): ${mat.content}`, leftMargin + 2, y)
+          y += 5
+        }
+      })
+      y += 6
+    }
+
+    // Images
     doc.setFontSize(10).setFont(undefined, 'bold')
     doc.setTextColor(107, 114, 128)
     doc.text('DOKUMENTASI VISUAL', leftMargin, y)
@@ -684,7 +754,6 @@ const exportPDF = async (process) => {
             doc.addImage(base64, 'JPEG', imgX, imgY, imgSize, imgSize)
           }
         } catch (e) {
-          console.error('Image load error:', e)
           doc.setFontSize(7).setTextColor(150, 150, 150)
           doc.text('Tidak ada foto', xPos + sectionWidth/2, boxY + boxHeight/2, { align: 'center' })
         }
@@ -696,13 +765,13 @@ const exportPDF = async (process) => {
       doc.setTextColor(0, 0, 0)
     }
 
-    await addImageSection(leftMargin, '1. KWh AWAL', 'Start Reading', process.kwh_start_images, [55, 65, 81])
-    await addImageSection(leftMargin + sectionWidth + spacing, '2. KWh AKHIR', 'End Reading', process.kwh_end_images, [55, 65, 81])
-    await addImageSection(leftMargin + (sectionWidth + spacing) * 2, '3. HASIL (OUTPUT)', 'Production Result', process.output_images, [29, 78, 216])
+    await addImageSection(leftMargin, '1. KWh AWAL', 'Start', process.kwh_start_images, [55, 65, 81])
+    await addImageSection(leftMargin + sectionWidth + spacing, '2. KWh AKHIR', 'End', process.kwh_end_images, [55, 65, 81])
+    await addImageSection(leftMargin + (sectionWidth + spacing) * 2, '3. HASIL', 'Output', process.output_images, [29, 78, 216])
 
     y += sectionHeight + 10
 
-    // ========== NOTES ==========
+    // Notes
     if (process.notes && process.notes !== '-' && process.notes.trim() !== '') {
       if (y > 240) {
         doc.addPage()
@@ -719,7 +788,7 @@ const exportPDF = async (process) => {
       
       doc.setFontSize(7).setFont(undefined, 'bold')
       doc.setTextColor(146, 64, 14)
-      doc.text('KETERANGAN / CATATAN:', leftMargin + 4, y + 5)
+      doc.text('CATATAN:', leftMargin + 4, y + 5)
       
       doc.setFontSize(9).setFont(undefined, 'normal')
       doc.setTextColor(113, 63, 18)
@@ -729,7 +798,7 @@ const exportPDF = async (process) => {
       doc.setTextColor(0, 0, 0)
     }
 
-    const fileName = `Laporan_${formatDateSimple(process.activity_date).replace(/\//g, '-')}.pdf`
+    const fileName = `${process.process_name.replace(/\s+/g, '_')}_${formatDateSimple(process.activity_date).replace(/\//g, '-')}.pdf`
     doc.save(fileName)
     
   } catch (err) {
@@ -737,6 +806,7 @@ const exportPDF = async (process) => {
     alert('Gagal export PDF: ' + err.message)
   }
 }
+
 const getBase64ImageFromURL = (url) => {
   return new Promise((resolve, reject) => {
     const img = new Image()
@@ -757,21 +827,4 @@ const getBase64ImageFromURL = (url) => {
     img.src = url
   })
 }
-
-const formatDate = (dt) => {
-  if (!dt) return '-'
-  return new Date(dt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
-}
-
-const formatTime = (dt) => {
-  if (!dt) return '-'
-  return new Date(dt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
-}
-
-const formatDuration = (p) => {
-  if (!p.activity_date || !p.completed_at) return '-'
-  const hrs = Math.abs(new Date(p.completed_at) - new Date(p.activity_date)) / 36e5
-  return `${hrs.toFixed(0)} jam`
-}
 </script>
-

@@ -1,3 +1,4 @@
+// stores/useMaterialStore.js
 import { defineStore } from 'pinia'
 
 export const useMaterialStore = defineStore('material', {
@@ -55,7 +56,6 @@ export const useMaterialStore = defineStore('material', {
         
         console.log('📦 Fetching materials with locations...')
 
-        // ✅ PERBAIKAN: Gunakan nama kolom yang benar dari database
         const { data: materialsData, error: materialsError } = await supabase
           .from('SB_Material')
           .select('material_id, material_name, location_id, created_at')
@@ -189,6 +189,57 @@ export const useMaterialStore = defineStore('material', {
         return { success: false, error: err.message }
       } finally {
         this.loading = false
+      }
+    },
+
+    // ✅ NEW: uploadImage untuk upload files
+    async uploadImage(file, bucketName, folderName) {
+      try {
+        const supabase = useSupabaseClient()
+        const config = useRuntimeConfig()
+        const baseUrl = config.public.supabaseUrl
+        
+        console.log('📤 Upload starting...')
+        console.log('  - File:', file.name, '(' + (file.size / 1024).toFixed(2) + ' KB)')
+        console.log('  - Bucket:', bucketName)
+        console.log('  - Folder:', folderName)
+        
+        const fileExt = file.name.split('.').pop()
+        const randomName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`
+        const filePath = folderName ? `${folderName}/${randomName}` : randomName
+
+        console.log('  - Path:', filePath)
+
+        const { data, error } = await supabase.storage
+          .from(bucketName)
+          .upload(filePath, file, { 
+            upsert: false,
+            contentType: file.type
+          })
+          
+        if (error) {
+          console.error('❌ Upload error:', error)
+          console.error('  - Message:', error.message)
+          console.error('  - Status:', error.status)
+          throw error
+        }
+
+        console.log('  - Upload data:', data)
+
+        const publicUrl = `${baseUrl}/storage/v1/object/public/${bucketName}/${filePath}`
+
+        console.log('✅ Upload success!')
+        console.log('  - URL:', publicUrl)
+
+        return { 
+          success: true, 
+          path: filePath, 
+          bucket: bucketName,
+          url: publicUrl
+        }
+      } catch (err) { 
+        console.error('❌ Upload error:', err)
+        return { success: false, error: err.message } 
       }
     },
 

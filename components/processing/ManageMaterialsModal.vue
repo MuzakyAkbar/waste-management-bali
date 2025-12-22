@@ -1,30 +1,24 @@
 <template>
-  <!-- ✅ PERBAIKAN: Tambahkan touch-action untuk mobile -->
-  <div v-if="show" class="fixed inset-0 z-50 overflow-y-auto touch-none" aria-labelledby="modal-title" role="dialog" aria-modal="true" @touchmove.prevent>
+  <div v-if="show" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
     <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
       
-      <!-- ✅ PERBAIKAN: Fixed overlay untuk mobile -->
-      <div 
-        class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity touch-none" 
-        aria-hidden="true" 
-        @click.stop="!loading && closeModal()"
-        @touchend.stop="!loading && closeModal()"
-      ></div>
+      <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" @click="!loading && closeModal()"></div>
       <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
-      <!-- Modal panel -->
-      <!-- ✅ PERBAIKAN: Prevent click propagation di mobile -->
-      <div 
-        class="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full"
-        @click.stop
-        @touchend.stop
-      >
+      <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-6xl sm:w-full">
         
-        <!-- Header -->
-        <div class="bg-white px-4 pt-5 pb-4 sm:p-6 border-b border-gray-200">
-          <div class="flex items-center justify-between">
-            <h3 class="text-lg leading-6 font-bold text-gray-900">Kelola Material Input</h3>
+        <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4 border-b border-gray-100">
+          <div class="sm:flex sm:items-start justify-between">
+            <div class="mt-3 text-center sm:mt-0 sm:text-left w-full">
+              <h3 class="text-lg leading-6 font-bold text-gray-900" id="modal-title">
+                Kelola Material Input
+              </h3>
+              <p class="mt-1 text-sm text-gray-500">
+                Tambahkan material dan foto bukti penimbangan.
+              </p>
+            </div>
             <button @click="closeModal" class="text-gray-400 hover:text-gray-500" :disabled="loading">
+              <span class="sr-only">Close</span>
               <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -32,168 +26,153 @@
           </div>
         </div>
 
-        <!-- Content -->
-        <div class="px-4 py-5 sm:p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+        <div class="bg-white px-4 pt-5 pb-4 sm:p-6">
           
-          <!-- Loading State -->
-          <div v-if="loadingData" class="text-center py-8">
+          <div v-if="errorMessage" class="mb-4 p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-200 flex items-start gap-2">
+            <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" /></svg>
+            <span>{{ errorMessage }}</span>
+          </div>
+
+          <div v-if="loadingData" class="py-12 text-center">
             <svg class="animate-spin h-8 w-8 text-blue-600 mx-auto mb-2" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <p class="text-gray-500 text-sm">Memuat data material...</p>
+            <p class="text-sm text-gray-500">Memuat data...</p>
           </div>
 
-          <!-- Error State -->
-          <div v-else-if="errorMessage" class="text-center py-8">
-            <svg class="w-12 h-12 text-red-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p class="text-gray-700 font-medium mb-2">Gagal memuat data</p>
-            <p class="text-gray-500 text-sm mb-4">{{ errorMessage }}</p>
-            <button 
-              @click="retryFetch" 
-              class="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 font-medium"
-            >
-              🔄 Coba Lagi
-            </button>
-          </div>
-
-          <!-- No Materials Warning -->
-          <div v-else-if="!loadingData && availableMaterials.length === 0" class="text-center py-8">
-            <svg class="w-12 h-12 text-amber-400 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <p class="text-gray-700 font-medium mb-2">Belum ada master data material</p>
-            <p class="text-gray-500 text-sm">Silakan tambahkan material di menu Material Management</p>
-            <button 
-              @click="retryFetch" 
-              class="mt-4 text-sm text-blue-600 hover:text-blue-800 font-medium"
-            >
-              🔄 Coba Lagi
-            </button>
-          </div>
-
-          <!-- Material Table -->
-          <div v-else>
-            <div class="flex justify-between items-center mb-3">
-              <p class="text-sm text-gray-600">
-                <span class="font-semibold">{{ availableMaterials.length }}</span> material tersedia
-              </p>
+          <div v-else class="space-y-5">
+            
+            <div class="flex flex-col sm:flex-row justify-between items-center gap-4 border-b border-gray-100 pb-4">
+              <div class="text-sm text-gray-600">
+                Total item: <span class="font-bold">{{ rows.length }}</span>
+              </div>
               <button 
                 type="button" 
                 @click="addRow" 
-                class="text-sm text-blue-600 font-semibold hover:text-blue-800 flex items-center gap-1"
+                class="w-full sm:w-auto inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none shadow-sm"
                 :disabled="loading"
               >
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                <svg class="-ml-1 mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
-                Tambah Baris
+                Tambah Material
               </button>
             </div>
 
-            <div class="border rounded-lg overflow-hidden shadow-sm">
+            <div class="hidden md:block border rounded-lg overflow-hidden shadow-sm">
               <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                   <tr>
-                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Jenis Material
-                    </th>
-                    <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                      Berat (Kg)
-                    </th>
-                    <th class="px-4 py-3 w-16 text-center"></th>
+                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-12">#</th>
+                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-64">Material</th>
+                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-24">Ember</th>
+                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider min-w-[150px]">Foto Bukti</th>
+                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-32">Berat (Kg)</th>
+                    <th class="px-4 py-3 w-12"></th>
                   </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
-                  <tr v-for="(row, index) in rows" :key="index" class="hover:bg-gray-50 transition-colors">
-                    <td class="px-4 py-3">
-                      <select 
-                        v-model="row.material_id" 
-                        @change="console.log('Material selected:', row.material_id)"
-                        class="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm transition-all"
-                        :class="{ 'border-red-300 bg-red-50': !row.material_id }"
-                        :disabled="loading"
-                        required
-                      >
+                  <tr v-for="(row, index) in rows" :key="index">
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 align-top pt-6">{{ index + 1 }}</td>
+                    <td class="px-4 py-4 whitespace-nowrap align-top">
+                      <select v-model="row.material_id" class="block w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                         <option value="">-- Pilih Material --</option>
-                        <option 
-                          v-for="mat in availableMaterials" 
-                          :key="mat.material_id" 
-                          :value="mat.material_id"
-                        >
-                          {{ mat.material_name }}
-                        </option>
+                        <option v-for="mat in availableMaterials" :key="mat.material_id" :value="mat.material_id">{{ mat.material_name }}</option>
                       </select>
                     </td>
-                    <td class="px-4 py-3">
-                      <input 
-                        type="number" 
-                        step="0.01" 
-                        min="0"
-                        v-model="row.qty"
-                        @input="handleQtyInput($event, index)"
-                        @blur="console.log('Qty blur:', row.qty)"
-                        class="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm transition-all" 
-                        :class="{ 'border-red-300 bg-red-50': row.qty <= 0 }"
-                        placeholder="0.00"
-                        :disabled="loading"
-                        required
-                      >
+                    <td class="px-4 py-4 whitespace-nowrap align-top">
+                      <input type="number" min="1" v-model.number="row.container_number" class="block w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-center">
                     </td>
-                    <td class="px-4 py-3 text-center">
-                      <button 
-                        type="button"
-                        @click="removeRow(index)" 
-                        class="text-red-500 hover:text-red-700 disabled:opacity-30"
-                        :disabled="loading || rows.length === 1"
-                        title="Hapus baris"
-                      >
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    <td class="px-4 py-4 align-top">
+                      <ImageUpload 
+                        :key="`image-${index}`"
+                        :max-images="1" 
+                        label="Foto Bukti"
+                        @images-changed="(images) => handleImageChange(index, images)" 
+                      />
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap align-top">
+                      <div class="relative">
+                        <input type="number" step="0.01" v-model.number="row.qty" class="block w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="0.00">
+                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                          <span class="text-gray-500 sm:text-xs">kg</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium align-top pt-6">
+                      <button @click="removeRow(index)" class="text-red-600 hover:text-red-900" :disabled="rows.length === 1">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                       </button>
                     </td>
                   </tr>
-                  <tr v-if="rows.length === 0">
-                    <td colspan="3" class="px-4 py-8 text-center text-gray-500 text-sm">
-                      Klik <strong>Tambah Baris</strong> untuk mulai.
-                    </td>
-                  </tr>
                 </tbody>
-                <tfoot class="bg-blue-50 border-t-2 border-blue-200">
-                  <tr>
-                    <td class="px-4 py-3 text-right font-bold text-gray-700">Total Input:</td>
-                    <td class="px-4 py-3 font-bold text-blue-700 text-lg">{{ totalWeight }} Kg</td>
+                <tfoot class="bg-gray-50">
+                   <tr>
+                    <td colspan="4" class="px-4 py-3 text-right text-sm font-bold text-gray-700">Total Berat:</td>
+                    <td class="px-4 py-3 text-left text-sm font-bold text-blue-700">{{ totalWeight }} kg</td>
                     <td></td>
-                  </tr>
+                   </tr>
                 </tfoot>
               </table>
             </div>
 
-            <div class="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <div class="flex items-start gap-2">
-                <svg class="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-                </svg>
-                <p class="text-xs text-blue-800">
-                  Total akan otomatis tersimpan sebagai <strong>Input Amount</strong> di proses ini.
-                </p>
+            <div class="md:hidden space-y-4">
+              <div v-for="(row, index) in rows" :key="index" class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                 <div class="flex justify-between items-center mb-3">
+                    <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-800 text-xs font-bold">#{{ index + 1 }}</span>
+                    <button @click="removeRow(index)" class="text-red-500" :disabled="rows.length === 1">
+                       <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    </button>
+                 </div>
+                 <div class="space-y-3">
+                    <div>
+                      <label class="block text-xs font-bold text-gray-700 mb-1">Material</label>
+                      <select v-model="row.material_id" class="block w-full border-gray-300 rounded-lg text-sm">
+                        <option value="">-- Pilih Material --</option>
+                        <option v-for="mat in availableMaterials" :key="mat.material_id" :value="mat.material_id">{{ mat.material_name }}</option>
+                      </select>
+                    </div>
+                    <div class="flex gap-3">
+                       <div class="w-1/3">
+                          <label class="block text-xs font-bold text-gray-700 mb-1">Ember</label>
+                          <input type="number" v-model.number="row.container_number" class="block w-full border-gray-300 rounded-lg text-center text-sm">
+                       </div>
+                       <div class="w-2/3">
+                          <label class="block text-xs font-bold text-gray-700 mb-1">Berat (Kg)</label>
+                          <input type="number" step="0.01" v-model.number="row.qty" class="block w-full border-gray-300 rounded-lg text-sm">
+                       </div>
+                    </div>
+                    <div>
+                       <label class="block text-xs font-bold text-gray-700 mb-1">Foto Bukti</label>
+                       <ImageUpload 
+                        :key="`mobile-image-${index}`"
+                        :max-images="1" 
+                        label="Foto Bukti"
+                        @images-changed="(images) => handleImageChange(index, images)" 
+                      />
+                    </div>
+                 </div>
+              </div>
+              <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 flex justify-between items-center">
+                 <span class="font-bold text-gray-700">Total Input:</span>
+                 <span class="font-bold text-blue-700 text-lg">{{ totalWeight }} Kg</span>
               </div>
             </div>
+
           </div>
         </div>
 
-        <!-- Footer -->
         <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse border-t border-gray-200">
           <button 
             type="button" 
-            class="w-full inline-flex justify-center rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed sm:ml-3 sm:w-auto items-center gap-2"
-            :disabled="loading || loadingData || !canSave"
-            @click="handleSave"
+            class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed items-center" 
+            :disabled="loading || loadingData" 
+            @click="handleSubmit"
           >
-            <svg v-if="loading" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+            <svg v-if="loading" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
@@ -201,7 +180,7 @@
           </button>
           <button 
             type="button" 
-            class="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-semibold bg-white text-gray-700 shadow-sm hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto" 
+            class="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm" 
             @click="closeModal" 
             :disabled="loading"
           >
@@ -216,8 +195,8 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { useMaterialStore } from '~/stores/useMaterialStore'
 import { useProcessingStore } from '~/stores/useProcessingStore'
+import ImageUpload from '~/components/common/ImageUpload.vue'
 
 const props = defineProps({
   show: Boolean,
@@ -225,271 +204,232 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'save'])
-const materialStore = useMaterialStore()
 const processingStore = useProcessingStore()
 const supabase = useSupabaseClient()
 
-const rows = ref([])
+// State
 const loading = ref(false)
 const loadingData = ref(false)
-const errorMessage = ref('')
-const dataLoaded = ref(false) // ✅ Track if data already loaded
+const errorMessage = ref(null)
+const rows = ref([])
+const availableMaterials = ref([])
 
-const availableMaterials = ref([]) // ✅ Local cache
-
+// Computed
 const totalWeight = computed(() => {
-  const total = rows.value.reduce((sum, row) => {
-    const qty = parseFloat(row.qty) || 0
-    return sum + qty
-  }, 0)
-  return total.toFixed(2)
+  return rows.value.reduce((sum, row) => sum + (parseFloat(row.qty) || 0), 0).toFixed(2)
 })
 
-const canSave = computed(() => {
-  const validRows = rows.value.filter(r => r.material_id && parseFloat(r.qty) > 0)
-  return validRows.length > 0 && availableMaterials.value.length > 0
-})
-
-// ✅ PERBAIKAN: Only load once per modal open + handle body overflow
-watch(() => props.show, async (isOpen, wasOpen) => {
-  if (isOpen && !wasOpen && props.processId) {
-    // Modal just opened
-    console.log('🔓 Modal opened for process:', props.processId)
-    
-    // ✅ Prevent body scroll on mobile
-    if (process.client) {
-      document.body.style.overflow = 'hidden'
-      document.body.style.position = 'fixed'
-      document.body.style.width = '100%'
+// Watcher
+watch(() => props.show, async (newVal) => {
+  if (newVal) {
+    if (props.processId) {
+      if (process.client) document.body.style.overflow = 'hidden'
+      await loadData()
     }
-    
-    // Only load if not already loaded OR if processId changed
-    if (!dataLoaded.value) {
-      await loadModalData()
-    }
-  } else if (!isOpen && wasOpen) {
-    // Modal just closed
-    console.log('🔒 Modal closed')
-    
-    // ✅ Restore body scroll
-    if (process.client) {
-      document.body.style.overflow = ''
-      document.body.style.position = ''
-      document.body.style.width = ''
-    }
-    
-    resetModalData()
+  } else {
+    if (process.client) document.body.style.overflow = ''
+    resetForm()
   }
 })
 
-const loadModalData = async () => {
-  // ✅ Prevent multiple simultaneous loads
-  if (loadingData.value) {
-    console.log('⚠️ Already loading, skipping...')
-    return
-  }
+const resetForm = () => {
+  rows.value = []
+  errorMessage.value = null
+  loading.value = false
+}
 
+const loadData = async () => {
   loadingData.value = true
-  errorMessage.value = ''
-  console.log('📂 Loading modal data for process:', props.processId)
+  errorMessage.value = null
   
   try {
-    // ✅ Single batch query
-    const { data: materialsData, error: materialsError } = await supabase
+    // 1. Load Master Material
+    const { data: materials, error: matError } = await supabase
       .from('SB_Material')
-      .select('material_id, material_name, location_id')
+      .select('material_id, material_name')
       .order('material_name')
     
-    if (materialsError) throw new Error('Gagal memuat data material: ' + materialsError.message)
+    if (matError) throw matError
+    availableMaterials.value = materials || []
 
-    availableMaterials.value = materialsData || []
-    console.log('✅ Materials loaded:', availableMaterials.value.length)
-
-    // ✅ Load existing materials used
+    // 2. Load Existing Data
     const { data: usedData, error: usedError } = await supabase
       .from('SB_Material_Used')
-      .select('used_id, material_id, qty')
+      .select('material_id, container_number, qty, material_images')
       .eq('processing_id', props.processId)
-    
-    if (usedError) throw new Error('Gagal memuat material yang digunakan: ' + usedError.message)
+      .order('container_number', { ascending: true })
 
-    console.log('✅ Existing materials used:', usedData?.length || 0)
-    console.log('📦 Raw used data:', JSON.stringify(usedData))
+    if (usedError) throw usedError
 
-    // Populate rows
     if (usedData && usedData.length > 0) {
-      rows.value = usedData.map(m => {
-        const row = {
-          material_id: m.material_id,
-          qty: parseFloat(m.qty) || 0
+      rows.value = usedData.map(item => {
+        const images = item.material_images || []
+        return {
+          material_id: item.material_id,
+          container_number: item.container_number,
+          qty: item.qty,
+          material_images: images,
+          material_files: [] // Files untuk new uploads
         }
-        console.log('  Mapping row:', JSON.stringify(row))
-        return row
       })
     } else {
-      rows.value = [{ material_id: '', qty: 0 }]
+      addRow()
     }
 
-    console.log('✅ Final rows:', JSON.stringify(rows.value))
+    console.log('✅ Data loaded')
 
-    dataLoaded.value = true
-    console.log('✅ Modal data loaded successfully')
   } catch (error) {
-    console.error('❌ Load error:', error)
-    errorMessage.value = error.message
+    console.error('❌ Load Error:', error)
+    errorMessage.value = 'Gagal memuat data: ' + error.message
   } finally {
     loadingData.value = false
   }
 }
 
-const retryFetch = async () => {
-  errorMessage.value = ''
-  dataLoaded.value = false
-  await loadModalData()
-}
-
-const resetModalData = () => {
-  rows.value = []
-  loading.value = false
-  loadingData.value = false
-  errorMessage.value = ''
-  dataLoaded.value = false
-  availableMaterials.value = [] // ✅ Clear cache
-}
-
 const addRow = () => {
-  rows.value.push({ material_id: '', qty: 0 })
-  console.log('➕ Row added')
+  const maxContainer = rows.value.length > 0 
+    ? Math.max(...rows.value.map(r => r.container_number || 0)) 
+    : 0
+  
+  rows.value.push({
+    material_id: '',
+    container_number: maxContainer + 1,
+    qty: 0,
+    material_images: [],
+    material_files: []
+  })
 }
 
 const removeRow = (index) => {
   if (rows.value.length > 1) {
     rows.value.splice(index, 1)
-    console.log('🗑️ Row removed')
   }
-}
-
-const handleQtyInput = (event, index) => {
-  const value = event.target.value
-  const numValue = parseFloat(value) || 0
-  
-  console.log(`📝 Qty input at index ${index}: "${value}" → ${numValue}`)
-  
-  // Force update the row
-  rows.value[index].qty = numValue
-  
-  console.log(`✅ Row ${index} updated:`, JSON.stringify(rows.value[index]))
 }
 
 const closeModal = () => {
-  if (!loading.value) {
-    emit('close')
-  }
+  emit('close')
 }
 
-const handleSave = async () => {
-  console.log('🔍 Current rows before validation:', JSON.stringify(rows.value))
-  
-  const validRows = rows.value.filter(r => {
-    const hasId = r.material_id && r.material_id !== ''
-    const hasQty = parseFloat(r.qty) > 0
-    console.log(`  Row check - ID: ${r.material_id}, Qty: ${r.qty}, Valid: ${hasId && hasQty}`)
-    return hasId && hasQty
-  })
-  
-  console.log('✅ Valid rows:', validRows.length, JSON.stringify(validRows))
-  
-  if (validRows.length === 0) {
-    alert('⚠️ Harap isi minimal satu material dengan berat yang valid')
-    return
-  }
+// Handle image change dari ImageUpload component
+const handleImageChange = (rowIndex, images) => {
+  console.log(`📸 Row ${rowIndex} images changed:`, images.length)
+  const files = images.map(img => img.file).filter(f => f)
+  rows.value[rowIndex].material_files = files
+}
 
-  const materialIds = validRows.map(r => r.material_id)
-  const uniqueIds = new Set(materialIds)
+const handleSubmit = async () => {
+  errorMessage.value = null
   
-  console.log('🔍 Material IDs:', materialIds)
-  console.log('🔍 Unique IDs:', [...uniqueIds])
-  
-  if (materialIds.length !== uniqueIds.size) {
-    alert('⚠️ Material yang sama tidak boleh dipilih lebih dari satu kali')
+  // Validation
+  const validRows = rows.value.filter(r => r.material_id && r.qty > 0)
+  if (validRows.length === 0) {
+    errorMessage.value = "Harap isi minimal satu material dengan berat yang valid."
     return
   }
 
   loading.value = true
-  
-  try {
-    console.log('💾 Saving materials for process:', props.processId)
 
-    // 1. Delete existing materials
-    console.log('🗑️ Deleting existing materials...')
+  try {
+    console.log('📝 Starting submit...')
+
+    // 1. Delete existing
     const { error: deleteError } = await supabase
       .from('SB_Material_Used')
       .delete()
       .eq('processing_id', props.processId)
     
-    if (deleteError) {
-      console.error('❌ Delete error:', deleteError)
-      throw deleteError
+    if (deleteError) throw deleteError
+    console.log('✅ Existing data deleted')
+
+    // 2. Upload images dan prepare payload
+    const payload = []
+
+    for (let i = 0; i < validRows.length; i++) {
+      const row = validRows[i]
+      let imagesToSave = [...row.material_images] // Existing images
+
+      // Upload new files jika ada
+      if (row.material_files && row.material_files.length > 0) {
+        for (const file of row.material_files) {
+          try {
+            const bucket = 'material_input_images'
+            const ext = file.name.split('.').pop() || 'jpg'
+            const timestamp = Date.now()
+            const path = `${props.processId}/${timestamp}-${Math.random().toString(36).substring(7)}.${ext}`
+
+            console.log('📤 Uploading:', path)
+
+            // Upload file
+            const { error } = await supabase.storage
+              .from(bucket)
+              .upload(path, file, { upsert: false })
+            
+            if (error) throw error
+
+            // Get public URL
+            const { data } = supabase.storage
+              .from(bucket)
+              .getPublicUrl(path)
+
+            imagesToSave.push({
+              name: file.name,
+              path: path,
+              url: data.publicUrl,
+              size: file.size,
+              type: file.type
+            })
+
+            console.log('✅ Image uploaded:', path)
+          } catch (err) {
+            console.error('❌ Upload error:', err)
+            throw err
+          }
+        }
+      }
+
+      payload.push({
+        processing_id: props.processId,
+        material_id: row.material_id,
+        container_number: row.container_number,
+        qty: parseFloat(row.qty),
+        material_images: imagesToSave
+      })
     }
-    
-    console.log('✅ Existing materials deleted')
 
-    // 2. Insert new materials
-    const payload = validRows.map(r => ({
-      processing_id: props.processId,
-      material_id: r.material_id,
-      qty: parseFloat(r.qty)
-    }))
+    console.log('💾 Payload ready:', payload.length, 'rows')
 
-    console.log('📦 Insert payload:', JSON.stringify(payload, null, 2))
-
+    // 3. Insert new data
     const { error: insertError } = await supabase
       .from('SB_Material_Used')
       .insert(payload)
+
+    if (insertError) throw insertError
+    console.log('✅ Data inserted')
+
+    // 4. Update total
+    const totalInput = validRows.reduce((sum, r) => sum + parseFloat(r.qty), 0)
     
-    if (insertError) {
-      console.error('❌ Insert error:', insertError)
-      throw insertError
-    }
-    
-    console.log('✅ Materials inserted')
-
-    // 3. Update total input_amount_kg in processing
-    const totalInput = validRows.reduce((sum, r) => {
-      const qty = parseFloat(r.qty) || 0
-      console.log(`  Adding ${qty} to total`)
-      return sum + qty
-    }, 0)
-
-    console.log('📊 Total input calculated:', totalInput)
-
     const { error: updateError } = await supabase
       .from('SB_Processing')
       .update({ input_amount_kg: totalInput })
       .eq('processing_id', props.processId)
 
-    if (updateError) {
-      console.error('❌ Update error:', updateError)
-      throw updateError
-    }
+    if (updateError) throw updateError
+    console.log('✅ Total updated:', totalInput)
 
-    console.log('✅ Processing updated with total input')
-    console.log('✅ Save completed successfully!')
-
-    // ✅ Update store immediately for instant UI feedback
     await processingStore.updateProcessInputAmount(props.processId, totalInput)
     
-    console.log('✅ Store updated with new input amount')
+    console.log('✅ Material input saved successfully')
 
-    // ✅ Emit save with data
-    emit('save', { processId: props.processId, totalInput })
-    
-    console.log('📢 Emitted save event')
-    
+    emit('save', { 
+      processId: props.processId, 
+      totalInput: totalInput 
+    })
     closeModal()
+
   } catch (error) {
-    console.error('❌ Save failed:', error)
-    alert('Gagal menyimpan: ' + error.message)
+    console.error('❌ Save Error:', error)
+    errorMessage.value = 'Gagal menyimpan: ' + error.message
   } finally {
     loading.value = false
   }
@@ -497,24 +437,5 @@ const handleSave = async () => {
 </script>
 
 <style scoped>
-.overflow-y-auto::-webkit-scrollbar {
-  width: 6px;
-}
-.overflow-y-auto::-webkit-scrollbar-track {
-  background: #f1f1f1;
-}
-.overflow-y-auto::-webkit-scrollbar-thumb {
-  background: #888;
-  border-radius: 3px;
-}
-
-/* ✅ PERBAIKAN: Prevent scrolling issues on mobile */
-.touch-none {
-  touch-action: none;
-}
-
-/* ✅ Ensure modal is always on top */
-.z-50 {
-  z-index: 9999 !important;
-}
+/* Optional: custom scrollbar if needed */
 </style>

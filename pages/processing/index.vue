@@ -8,23 +8,23 @@
       @complete="openCompleteModal"
     />
 
-    <!-- ✅ PERBAIKAN: Gunakan v-show atau pindahkan v-if ke dalam modal -->
-    <!-- ✅ Pass show prop explicitly -->
     <AddActivityModal 
+      v-if="showAddModal" 
       :show="showAddModal"
       @close="showAddModal = false" 
       @save="handleCreate" 
     />
     
-    <!-- ✅ PERBAIKAN: Hanya render sekali, kontrol visibility dengan prop show -->
     <ManageMaterialsModal
+      v-if="showMaterialModal"
       :show="showMaterialModal"
       :process-id="selectedProcessId"
-      @close="closeMaterialModal"
+      @close="showMaterialModal = false"
       @save="handleMaterialSaved"
     />
 
     <CompleteActivityModal 
+      v-if="showCompleteModal" 
       :show="showCompleteModal"
       :process="selectedProcess" 
       @close="showCompleteModal = false" 
@@ -62,47 +62,62 @@ const openCompleteModal = (process) => {
 }
 
 const openMaterialModal = (id) => {
-  console.log('🔓 Opening material modal for process:', id)
   selectedProcessId.value = id
   showMaterialModal.value = true
 }
 
-const closeMaterialModal = () => {
-  console.log('🔒 Closing material modal')
-  showMaterialModal.value = false
-  selectedProcessId.value = null // ✅ Reset process ID
-}
-
-const handleCreate = async (data) => {
-  console.log('📝 Creating process with data:', data)
+// ✅ PERBAIKAN: handleCreate dengan validation
+const handleCreate = async (formData) => {
+  console.log('📥 Received data from modal:', formData)
   
-  const result = await processingStore.createProcess(data)
+  // ✅ Validation
+  if (!formData) {
+    console.error('❌ No data received from modal')
+    alert('Error: Data tidak valid')
+    return
+  }
   
-  if (result.success) {
-    console.log('✅ Process created successfully')
-    showAddModal.value = false
+  if (!formData.created_by) {
+    console.error('❌ No user ID in formData')
+    alert('Error: User ID tidak ditemukan. Silakan login ulang.')
+    return
+  }
+  
+  if (!formData.imageFile) {
+    console.error('❌ No image file in formData')
+    alert('Error: Foto wajib diupload')
+    return
+  }
+  
+  console.log('✅ Data validated, calling store...')
+  
+  try {
+    const result = await processingStore.createProcess(formData)
     
-    // Optional: Show success message
-    // You can add a toast notification here
-  } else {
-    console.error('❌ Failed to create:', result.error)
-    alert('Failed to create: ' + result.error)
+    if (result.success) {
+      console.log('✅ Process created successfully')
+      showAddModal.value = false
+    } else {
+      console.error('❌ Failed to create:', result.error)
+      alert('Gagal membuat aktivitas: ' + result.error)
+    }
+  } catch (error) {
+    console.error('❌ Exception in handleCreate:', error)
+    alert('Terjadi kesalahan: ' + error.message)
   }
 }
 
-const handleMaterialSaved = async (data) => {
-  console.log('✅ Materials saved successfully, input amount updated to:', data.totalInput)
-  
-  // Close modal immediately - data sudah update di store
+const handleMaterialSaved = () => {
   showMaterialModal.value = false
-  
-  // Optional: Show success notification
-  console.log('🎉 Material input berhasil disimpan!')
+  console.log('✅ Materials saved, refreshing...')
+  processingStore.fetchProcesses()
 }
 
 const handleComplete = async () => {
   showCompleteModal.value = false
   selectedProcess.value = null
+  console.log('✅ Process completed, refreshing...')
+  await processingStore.fetchProcesses()
 }
 
 onMounted(() => {
