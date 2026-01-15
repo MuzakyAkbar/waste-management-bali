@@ -73,7 +73,7 @@
                   </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
-                  <tr v-for="(row, index) in rows" :key="index">
+                  <tr v-for="(row, index) in rows" :key="row._id">
                     <td class="px-4 py-4 whitespace-nowrap text-sm text-gray-500 align-top pt-6">{{ index + 1 }}</td>
                     <td class="px-4 py-4 whitespace-nowrap align-top">
                       <select v-model="row.material_id" class="block w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
@@ -85,12 +85,19 @@
                       <input type="number" min="1" v-model.number="row.container_number" class="block w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm text-center">
                     </td>
                     <td class="px-4 py-4 align-top">
-                      <ImageUpload 
-                        :key="`image-${index}`"
-                        :max-images="1" 
-                        label="Foto Bukti"
-                        @images-changed="(images) => handleImageChange(index, images)" 
-                      />
+                      <button 
+                        @click="openUploadSelector(index)"
+                        class="w-[80px] h-[80px] flex-shrink-0 rounded-lg border flex items-center justify-center transition overflow-hidden shadow-sm hover:shadow-md"
+                        :class="row.imageUrl ? 'border-green-300 bg-white ring-2 ring-green-100' : 'bg-gray-50 border-gray-300 hover:border-blue-400 hover:text-blue-500 text-gray-400'"
+                        title="Upload Bukti Foto"
+                      >
+                        <img v-if="row.imageUrl" :src="row.imageUrl" class="w-full h-full object-cover">
+                        <svg v-else class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                      </button>
+                      <p v-if="row.imageUrl" class="text-xs text-green-600 mt-1">✓ Foto tersimpan</p>
                     </td>
                     <td class="px-4 py-4 whitespace-nowrap align-top">
                       <div class="relative">
@@ -120,7 +127,7 @@
             </div>
 
             <div class="md:hidden space-y-4">
-              <div v-for="(row, index) in rows" :key="index" class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+              <div v-for="(row, index) in rows" :key="row._id" class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
                  <div class="flex justify-between items-center mb-3">
                     <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-800 text-xs font-bold">#{{ index + 1 }}</span>
                     <button @click="removeRow(index)" class="text-red-500" :disabled="rows.length === 1">
@@ -147,12 +154,20 @@
                     </div>
                     <div>
                        <label class="block text-xs font-bold text-gray-700 mb-1">Foto Bukti</label>
-                       <ImageUpload 
-                        :key="`mobile-image-${index}`"
-                        :max-images="1" 
-                        label="Foto Bukti"
-                        @images-changed="(images) => handleImageChange(index, images)" 
-                      />
+                       <button 
+                        @click="openUploadSelector(index)"
+                        class="w-full h-[100px] rounded-lg border flex items-center justify-center transition overflow-hidden shadow-sm hover:shadow-md"
+                        :class="row.imageUrl ? 'border-green-300 bg-white ring-2 ring-green-100' : 'bg-gray-50 border-gray-300 hover:border-blue-400 hover:text-blue-500 text-gray-400'"
+                       >
+                        <img v-if="row.imageUrl" :src="row.imageUrl" class="w-full h-full object-cover">
+                        <div v-else class="text-center">
+                          <svg class="w-8 h-8 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                          </svg>
+                          <p class="text-xs mt-1">Upload Foto</p>
+                        </div>
+                       </button>
                     </div>
                  </div>
               </div>
@@ -190,13 +205,61 @@
 
       </div>
     </div>
+
+    <!-- Upload Selection Modal -->
+    <div v-if="showSelectionModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" @click.self="showSelectionModal = false">
+      <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl relative animate-fade-in">
+        <button @click="showSelectionModal = false" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition">✕</button>
+        <h3 class="font-bold text-gray-900 mb-6 text-center text-lg">Upload Bukti Foto</h3>
+        
+        <div class="space-y-3">
+          <button @click="openCamera" class="w-full flex items-center justify-center gap-3 bg-blue-600 text-white py-3.5 rounded-xl font-semibold hover:bg-blue-700 transition shadow-md">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+            Ambil Foto (Kamera)
+          </button>
+          <button @click="triggerFileInput" class="w-full flex items-center justify-center gap-3 bg-gray-100 text-gray-700 py-3.5 rounded-xl font-semibold hover:bg-gray-200 border border-gray-200 transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+            Pilih dari Galeri
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Camera Modal -->
+    <div v-if="showCameraModal" class="fixed inset-0 bg-black z-[70] flex flex-col">
+      <div class="absolute top-0 left-0 right-0 flex justify-between items-center p-4 z-30">
+        <button @click="closeCameraModal" class="text-white bg-black/50 px-4 py-2 rounded-full backdrop-blur font-medium text-sm shadow-lg">Batal</button>
+        <button @click="switchCamera" class="text-white bg-black/50 p-2 rounded-full backdrop-blur shadow-lg">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+        </button>
+      </div>
+      <div class="flex-1 relative flex items-center justify-center bg-black overflow-hidden">
+        <div class="relative w-full max-w-[100vh] mx-auto" style="aspect-ratio: 3/4;">
+          <video ref="videoElement" autoplay playsinline class="absolute inset-0 w-full h-full object-cover"></video>
+        </div>
+        <canvas ref="canvasElement" class="hidden"></canvas>
+      </div>
+      <div class="absolute bottom-0 left-0 right-0 p-8 flex justify-center bg-gradient-to-t from-black/80 to-transparent items-center gap-8 z-30">
+        <button @click="takePhoto" class="w-20 h-20 rounded-full border-4 border-white bg-white/20 hover:bg-white/40 transition flex items-center justify-center shadow-lg">
+          <div class="w-16 h-16 bg-white rounded-full"></div>
+        </button>
+      </div>
+    </div>
+
+    <input type="file" ref="fileInput" class="hidden" accept="image/*" @change="onFileSelected">
+
+    <!-- Upload Loading -->
+    <div v-if="isUploading" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[80] flex items-center justify-center text-white font-bold flex-col gap-3">
+      <div class="animate-spin w-12 h-12 border-4 border-white border-t-transparent rounded-full"></div>
+      <p>Mengunggah Foto...</p>
+    </div>
+
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 import { useProcessingStore } from '~/stores/useProcessingStore'
-import ImageUpload from '~/components/common/ImageUpload.vue'
 
 const props = defineProps({
   show: Boolean,
@@ -206,6 +269,7 @@ const props = defineProps({
 const emit = defineEmits(['close', 'save'])
 const processingStore = useProcessingStore()
 const supabase = useSupabaseClient()
+const config = useRuntimeConfig()
 
 // State
 const loading = ref(false)
@@ -213,6 +277,20 @@ const loadingData = ref(false)
 const errorMessage = ref(null)
 const rows = ref([])
 const availableMaterials = ref([])
+const rowIdCounter = ref(0)
+
+// Upload states
+const showSelectionModal = ref(false)
+const showCameraModal = ref(false)
+const isUploading = ref(false)
+const activeRowIndex = ref(null)
+const fileInput = ref(null)
+
+// Camera states
+const videoElement = ref(null)
+const canvasElement = ref(null)
+const mediaStream = ref(null)
+const facingMode = ref('environment')
 
 // Computed
 const totalWeight = computed(() => {
@@ -228,14 +306,21 @@ watch(() => props.show, async (newVal) => {
     }
   } else {
     if (process.client) document.body.style.overflow = ''
+    stopCamera()
     resetForm()
   }
 })
 
 const resetForm = () => {
   rows.value = []
+  availableMaterials.value = []
   errorMessage.value = null
   loading.value = false
+  loadingData.value = false
+  rowIdCounter.value = 0
+  showSelectionModal.value = false
+  showCameraModal.value = false
+  activeRowIndex.value = null
 }
 
 const loadData = async () => {
@@ -243,6 +328,8 @@ const loadData = async () => {
   errorMessage.value = null
   
   try {
+    console.log('📥 Loading data for process:', props.processId)
+
     // 1. Load Master Material
     const { data: materials, error: matError } = await supabase
       .from('SB_Material')
@@ -251,6 +338,7 @@ const loadData = async () => {
     
     if (matError) throw matError
     availableMaterials.value = materials || []
+    console.log('✅ Materials loaded:', availableMaterials.value.length)
 
     // 2. Load Existing Data
     const { data: usedData, error: usedError } = await supabase
@@ -261,22 +349,48 @@ const loadData = async () => {
 
     if (usedError) throw usedError
 
+    console.log('📦 Raw data from DB:', usedData)
+
     if (usedData && usedData.length > 0) {
       rows.value = usedData.map(item => {
-        const images = item.material_images || []
+        // Parse material_images dengan benar
+        let imageUrl = null
+        let imagePath = null
+        
+        if (item.material_images) {
+          try {
+            const parsedImages = typeof item.material_images === 'string' 
+              ? JSON.parse(item.material_images) 
+              : item.material_images
+            
+            if (Array.isArray(parsedImages) && parsedImages.length > 0) {
+              imageUrl = parsedImages[0].url
+              imagePath = parsedImages[0].path
+            }
+          } catch (e) {
+            console.error('❌ Error parsing material_images:', e)
+          }
+        }
+
+        rowIdCounter.value++
         return {
+          _id: rowIdCounter.value,
           material_id: item.material_id,
           container_number: item.container_number,
-          qty: item.qty,
-          material_images: images,
-          material_files: [] // Files untuk new uploads
+          qty: parseFloat(item.qty) || 0,
+          imageUrl: imageUrl,
+          imagePath: imagePath,
+          newImageFile: null
         }
       })
+
+      console.log('✅ Rows prepared:', rows.value.length)
     } else {
+      console.log('ℹ️  No existing data, adding empty row')
       addRow()
     }
 
-    console.log('✅ Data loaded')
+    console.log('✅ Data loaded successfully')
 
   } catch (error) {
     console.error('❌ Load Error:', error)
@@ -287,41 +401,237 @@ const loadData = async () => {
 }
 
 const addRow = () => {
+  console.log('🔵 Button "Tambah Material" clicked')
+  console.log('   Current rows count:', rows.value.length)
+  
   const maxContainer = rows.value.length > 0 
     ? Math.max(...rows.value.map(r => r.container_number || 0)) 
     : 0
   
-  rows.value.push({
+  rowIdCounter.value++
+  const newRow = {
+    _id: rowIdCounter.value,
     material_id: '',
     container_number: maxContainer + 1,
     qty: 0,
-    material_images: [],
-    material_files: []
-  })
+    imageUrl: null,
+    imagePath: null,
+    newImageFile: null
+  }
+  
+  rows.value.push(newRow)
+  console.log('➕ Added new row:', newRow)
+  console.log('   Total rows now:', rows.value.length)
 }
 
 const removeRow = (index) => {
+  console.log('🗑️ Button "Remove Row" clicked for index:', index)
+  console.log('   Current rows count:', rows.value.length)
+  
   if (rows.value.length > 1) {
+    const removedRow = rows.value[index]
+    console.log('   Row to remove:', removedRow)
     rows.value.splice(index, 1)
+    console.log('   Rows after removal:', rows.value.length)
+  } else {
+    console.log('   Cannot remove - only one row left')
   }
 }
 
 const closeModal = () => {
+  console.log('❌ Button "Close Modal" clicked')
+  console.log('   Loading state:', loading.value)
+  stopCamera()
   emit('close')
 }
 
-// Handle image change dari ImageUpload component
-const handleImageChange = (rowIndex, images) => {
-  console.log(`📸 Row ${rowIndex} images changed:`, images.length)
-  const files = images.map(img => img.file).filter(f => f)
-  rows.value[rowIndex].material_files = files
+// === UPLOAD LOGIC ===
+const openUploadSelector = (rowIndex) => {
+  console.log('📸 Opening upload selector for row:', rowIndex)
+  activeRowIndex.value = rowIndex
+  showSelectionModal.value = true
 }
 
+const triggerFileInput = () => {
+  console.log('📁 Triggering file input')
+  showSelectionModal.value = false
+  fileInput.value.click()
+}
+
+const onFileSelected = async (e) => {
+  if (e.target.files.length > 0) {
+    console.log('📄 File selected:', e.target.files[0].name)
+    await handleFileUpload(e.target.files[0])
+  }
+  // Reset file input
+  e.target.value = ''
+}
+
+const handleFileUpload = async (file) => {
+  if (!file || activeRowIndex.value === null) {
+    console.log('❌ No file or no active row')
+    return
+  }
+  
+  console.log('📤 Starting file upload for row:', activeRowIndex.value)
+  console.log('   File:', file.name, file.size, 'bytes')
+  
+  isUploading.value = true
+  showSelectionModal.value = false
+  showCameraModal.value = false
+
+  try {
+    const row = rows.value[activeRowIndex.value]
+    const bucket = 'material_input_images'
+    const ext = file.name.split('.').pop() || 'jpg'
+    const timestamp = Date.now()
+    const random = Math.random().toString(36).substring(2, 9)
+    
+    // Generate used_id placeholder for folder structure
+    const tempUsedId = `${timestamp}-${random}`
+    // Format: processing_id-used_id/filename
+    const filePath = `${props.processId}-${tempUsedId}/${timestamp}-${random}.${ext}`
+
+    console.log('   📤 Uploading to path:', filePath)
+
+    // Delete old image if exists
+    if (row.imagePath) {
+      try {
+        console.log('   🗑️ Deleting old image:', row.imagePath)
+        await supabase.storage.from(bucket).remove([row.imagePath])
+      } catch (e) {
+        console.log('   ⚠️ Could not remove old file:', e)
+      }
+    }
+
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from(bucket)
+      .upload(filePath, file, { 
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type 
+      })
+    
+    if (uploadError) {
+      console.error('   ❌ Upload error:', uploadError)
+      throw new Error(uploadError.message || 'Upload gagal')
+    }
+
+    console.log('   ✅ Upload success:', uploadData)
+
+    const { data } = supabase.storage.from(bucket).getPublicUrl(filePath)
+    
+    row.imageUrl = data.publicUrl
+    row.imagePath = filePath
+    row.newImageFile = file
+
+    console.log('   ✅ Image URL set:', row.imageUrl)
+    alert('✅ Foto berhasil diupload!')
+
+  } catch (err) {
+    console.error('❌ Upload error:', err)
+    alert("❌ Gagal upload: " + err.message)
+  } finally {
+    isUploading.value = false
+    activeRowIndex.value = null
+  }
+}
+
+// === CAMERA LOGIC ===
+const openCamera = async () => {
+  console.log('📷 Opening camera')
+  showSelectionModal.value = false
+  showCameraModal.value = true
+  await nextTick()
+  startCamera()
+}
+
+const startCamera = async () => {
+  if (mediaStream.value) stopCamera()
+  
+  try {
+    console.log('📷 Starting camera with facingMode:', facingMode.value)
+    const stream = await navigator.mediaDevices.getUserMedia({ 
+      video: { 
+        facingMode: facingMode.value, 
+        width: { ideal: 1280 }, 
+        height: { ideal: 720 } 
+      } 
+    })
+    mediaStream.value = stream
+    if (videoElement.value) {
+      videoElement.value.srcObject = stream
+    }
+    console.log('✅ Camera started')
+  } catch (err) {
+    console.error('❌ Camera error:', err)
+    alert("Gagal akses kamera: " + err.message)
+    showCameraModal.value = false
+  }
+}
+
+const stopCamera = () => {
+  if (mediaStream.value) {
+    console.log('📷 Stopping camera')
+    mediaStream.value.getTracks().forEach(t => t.stop())
+    mediaStream.value = null
+  }
+}
+
+const switchCamera = () => {
+  console.log('🔄 Switching camera')
+  facingMode.value = facingMode.value === 'environment' ? 'user' : 'environment'
+  startCamera()
+}
+
+const closeCameraModal = () => {
+  console.log('❌ Closing camera modal')
+  showCameraModal.value = false
+  stopCamera()
+}
+
+const takePhoto = () => {
+  console.log('📸 Taking photo')
+  const video = videoElement.value
+  const canvas = canvasElement.value
+  if (!video || !canvas) {
+    console.error('❌ Video or canvas not found')
+    return
+  }
+
+  canvas.width = video.videoWidth
+  canvas.height = video.videoHeight
+  const ctx = canvas.getContext('2d')
+  
+  if (facingMode.value === 'user') {
+    ctx.translate(canvas.width, 0)
+    ctx.scale(-1, 1)
+  }
+  
+  ctx.drawImage(video, 0, 0)
+  
+  canvas.toBlob(blob => {
+    const file = new File([blob], `cam_${Date.now()}.jpg`, { type: 'image/jpeg' })
+    console.log('✅ Photo captured:', file.name)
+    handleFileUpload(file)
+  }, 'image/jpeg', 0.8)
+}
+
+onBeforeUnmount(() => {
+  stopCamera()
+})
+
+// === SUBMIT ===
 const handleSubmit = async () => {
+  console.log('🟢 Button "Simpan Perubahan" clicked')
+  console.log('   Total rows:', rows.value.length)
+  
   errorMessage.value = null
   
   // Validation
   const validRows = rows.value.filter(r => r.material_id && r.qty > 0)
+  console.log('   Valid rows:', validRows.length)
+  
   if (validRows.length === 0) {
     errorMessage.value = "Harap isi minimal satu material dengan berat yang valid."
     return
@@ -341,62 +651,43 @@ const handleSubmit = async () => {
     if (deleteError) throw deleteError
     console.log('✅ Existing data deleted')
 
-    // 2. Upload images dan prepare payload
+    // 2. Prepare payload
     const payload = []
 
     for (let i = 0; i < validRows.length; i++) {
       const row = validRows[i]
-      let imagesToSave = [...row.material_images] // Existing images
+      console.log(`\n📦 Processing row ${i + 1}:`)
+      console.log('   Material ID:', row.material_id)
+      console.log('   Container:', row.container_number)
+      console.log('   Qty:', row.qty)
+      console.log('   Image URL:', row.imageUrl)
+      console.log('   Image Path:', row.imagePath)
 
-      // Upload new files jika ada
-      if (row.material_files && row.material_files.length > 0) {
-        for (const file of row.material_files) {
-          try {
-            const bucket = 'material_input_images'
-            const ext = file.name.split('.').pop() || 'jpg'
-            const timestamp = Date.now()
-            const path = `${props.processId}/${timestamp}-${Math.random().toString(36).substring(7)}.${ext}`
-
-            console.log('📤 Uploading:', path)
-
-            // Upload file
-            const { error } = await supabase.storage
-              .from(bucket)
-              .upload(path, file, { upsert: false })
-            
-            if (error) throw error
-
-            // Get public URL
-            const { data } = supabase.storage
-              .from(bucket)
-              .getPublicUrl(path)
-
-            imagesToSave.push({
-              name: file.name,
-              path: path,
-              url: data.publicUrl,
-              size: file.size,
-              type: file.type
-            })
-
-            console.log('✅ Image uploaded:', path)
-          } catch (err) {
-            console.error('❌ Upload error:', err)
-            throw err
-          }
-        }
+      let materialImages = []
+      
+      if (row.imageUrl && row.imagePath) {
+        materialImages.push({
+          name: row.imagePath.split('/').pop(),
+          path: row.imagePath,
+          url: row.imageUrl,
+          size: row.newImageFile ? row.newImageFile.size : 0,
+          type: row.newImageFile ? row.newImageFile.type : 'image/jpeg'
+        })
       }
+
+      console.log('   💾 Images to save:', materialImages.length)
 
       payload.push({
         processing_id: props.processId,
         material_id: row.material_id,
         container_number: row.container_number,
         qty: parseFloat(row.qty),
-        material_images: imagesToSave
+        material_images: materialImages
       })
     }
 
-    console.log('💾 Payload ready:', payload.length, 'rows')
+    console.log('\n💾 Payload ready:', payload.length, 'rows')
+    console.log('Payload:', JSON.stringify(payload, null, 2))
 
     // 3. Insert new data
     const { error: insertError } = await supabase
@@ -404,9 +695,9 @@ const handleSubmit = async () => {
       .insert(payload)
 
     if (insertError) throw insertError
-    console.log('✅ Data inserted')
+    console.log('✅ Data inserted to database')
 
-    // 4. Update total
+    // 4. Update total input amount
     const totalInput = validRows.reduce((sum, r) => sum + parseFloat(r.qty), 0)
     
     const { error: updateError } = await supabase
@@ -415,11 +706,12 @@ const handleSubmit = async () => {
       .eq('processing_id', props.processId)
 
     if (updateError) throw updateError
-    console.log('✅ Total updated:', totalInput)
+    console.log('✅ Total input updated:', totalInput, 'kg')
 
+    // 5. Update store
     await processingStore.updateProcessInputAmount(props.processId, totalInput)
     
-    console.log('✅ Material input saved successfully')
+    console.log('✅ Material input saved successfully!')
 
     emit('save', { 
       processId: props.processId, 
@@ -437,5 +729,6 @@ const handleSubmit = async () => {
 </script>
 
 <style scoped>
-/* Optional: custom scrollbar if needed */
+.animate-fade-in { animation: fadeIn 0.2s ease-out; }
+@keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
 </style>

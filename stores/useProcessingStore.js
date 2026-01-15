@@ -80,6 +80,8 @@ export const useProcessingStore = defineStore('processing', {
             created_at: item.created_at,
             activity_date: item.start_datetime,
             completed_at: item.end_datetime,
+            start_datetime: item.start_datetime,
+            end_datetime: item.end_datetime, 
             input_amount: item.input_amount_kg || 0,
             output_amount: item.output_amount_kg,
             kwh_start: item.kwh_start || 0,
@@ -137,111 +139,107 @@ export const useProcessingStore = defineStore('processing', {
 
     // ✅ NEW: Create process (step 1 - hanya nama dan tanggal)
     async createProcess(processData) {
-      this.loading = true
+  this.loading = true
+  
+  try {
+    const supabase = useSupabaseClient()
+    const userId = processData.created_by
+    
+    console.log('🆕 Creating process with user:', userId)
+    
+    if (!userId) {
+      throw new Error('User ID not found')
+    }
+
+    const payload = {
+      created_by: userId,
+      process_name: processData.process_name,
+      created_at: processData.created_at, // Sudah dalam format 'YYYY-MM-DD HH:mm:ss' dari modal
+    }
+    
+    console.log('📦 Payload:', JSON.stringify(payload, null, 2))
+    
+    const { data, error } = await supabase
+      .from('SB_Processing')
+      .insert([payload])
+      .select()
+      .single()
       
-      try {
-        const supabase = useSupabaseClient()
-        const userId = processData.created_by
-        
-        console.log('🆕 Creating process with user:', userId)
-        
-        if (!userId) {
-          throw new Error('User ID not found')
-        }
-
-        const payload = {
-          created_by: userId,
-          process_name: processData.process_name,
-          created_at: processData.created_at || new Date().toISOString(),
-        }
-        
-        console.log('📦 Payload:', JSON.stringify(payload, null, 2))
-        
-        const { data, error } = await supabase
-          .from('SB_Processing')
-          .insert([payload])
-          .select()
-          .single()
-          
-        if (error) {
-          console.error('❌ Insert error:', error)
-          throw error
-        }
-        
-        console.log('✅ Process created:', data)
-        
-        await this.fetchProcesses(true)
-        return { success: true, data }
-        
-      } catch (err) {
-        console.error('❌ Create process error:', err)
-        return { success: false, error: err.message }
-      } finally {
-        this.loading = false
-      }
-    },
-
+    if (error) {
+      console.error('❌ Insert error:', error)
+      throw error
+    }
+    
+    console.log('✅ Process created:', data)
+    
+    await this.fetchProcesses(true)
+    return { success: true, data }
+    
+  } finally {
+    this.loading = false
+  }
+},
     // ✅ NEW: Add KWh Start (step 2 - input kwh awal + foto + set start_datetime)
     async addKwhStart(processingId, kwhData) {
-      this.loading = true
+  this.loading = true
+  
+  try {
+    const supabase = useSupabaseClient()
+    
+    console.log('⚡ Adding KWh start for process:', processingId)
+    
+    let kwhStartImages = []
+    
+    if (kwhData.imageFile) {
+      console.log('📤 Uploading image:', kwhData.imageFile.name)
       
-      try {
-        const supabase = useSupabaseClient()
-        
-        console.log('⚡ Adding KWh start for process:', processingId)
-        
-        let kwhStartImages = []
-        
-        if (kwhData.imageFile) {
-          console.log('📤 Uploading image:', kwhData.imageFile.name)
-          
-          const uploadRes = await this.uploadImage(
-            kwhData.imageFile, 
-            'kwh-start-images', 
-            processingId
-          )
-          
-          if (uploadRes.success) {
-            kwhStartImages = [{
-              url: uploadRes.url,
-              path: uploadRes.path,
-              bucket: uploadRes.bucket
-            }]
-          } else {
-            throw new Error('Failed to upload image: ' + uploadRes.error)
-          }
-        }
-
-        const updatePayload = {
-          start_datetime: kwhData.start_datetime || new Date().toISOString(),
-          kwh_start: parseFloat(kwhData.kwh_start) || 0,
-          kwh_start_images: kwhStartImages
-        }
-        
-        console.log('💾 Update payload:', JSON.stringify(updatePayload, null, 2))
-        
-        const { error } = await supabase
-          .from('SB_Processing')
-          .update(updatePayload)
-          .eq('processing_id', processingId)
-          
-        if (error) {
-          console.error('❌ Update error:', error)
-          throw error
-        }
-        
-        console.log('✅ KWh start added')
-        
-        await this.fetchProcesses(true)
-        return { success: true }
-        
-      } catch (err) {
-        console.error('❌ Add KWh start error:', err)
-        return { success: false, error: err.message }
-      } finally {
-        this.loading = false
+      const uploadRes = await this.uploadImage(
+        kwhData.imageFile, 
+        'kwh-start-images', 
+        processingId
+      )
+      
+      if (uploadRes.success) {
+        kwhStartImages = [{
+          url: uploadRes.url,
+          path: uploadRes.path,
+          bucket: uploadRes.bucket
+        }]
+      } else {
+        throw new Error('Failed to upload image: ' + uploadRes.error)
       }
-    },
+    }
+
+    const updatePayload = {
+      start_datetime: kwhData.start_datetime, // Sudah format 'YYYY-MM-DD HH:mm:ss'
+      kwh_start: parseFloat(kwhData.kwh_start) || 0,
+      kwh_start_images: kwhStartImages
+    }
+    
+    console.log('💾 Update payload:', JSON.stringify(updatePayload, null, 2))
+    
+    const { error } = await supabase
+      .from('SB_Processing')
+      .update(updatePayload)
+      .eq('processing_id', processingId)
+      
+    if (error) {
+      console.error('❌ Update error:', error)
+      throw error
+    }
+    
+    console.log('✅ KWh start added')
+    
+    await this.fetchProcesses(true)
+    return { success: true }
+    
+  } catch (err) {
+    console.error('❌ Add KWh start error:', err)
+    return { success: false, error: err.message }
+  } finally {
+    this.loading = false
+  }
+},
 
     async uploadImage(file, bucketName, folderName) {
       try {
@@ -345,6 +343,7 @@ export const useProcessingStore = defineStore('processing', {
             container_number,
             container_content,
             qty,
+            material_images,
             SB_Material (
               material_name
             )
@@ -360,7 +359,8 @@ export const useProcessingStore = defineStore('processing', {
           material_name: m.SB_Material?.material_name || 'Unknown',
           container_number: m.container_number,
           container_content: m.container_content || '',
-          qty: parseFloat(m.qty) || 0
+          qty: parseFloat(m.qty) || 0,
+          material_images: m.material_images
         }))
 
         const processIndex = this.processes.findIndex(p => p.id === processingId)

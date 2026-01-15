@@ -146,38 +146,43 @@
               <tr v-if="expandedRows.includes(process.id) && process.status === 'completed'" class="bg-gray-50/50">
                 <td colspan="6" class="px-6 py-8">
                   <div class="bg-white border-2 border-gray-300 rounded-lg p-8 shadow-md max-w-6xl mx-auto">
-                    
                     <div class="mb-8 pb-4 border-b-4 border-gray-800">
                       <div class="flex justify-between items-end">
-                        <div>
-                          <h4 class="text-2xl font-black text-gray-900 uppercase tracking-tighter">{{ process.process_name }}</h4>
-                          <p class="text-md font-bold text-gray-600">ID Laporan: {{ process.id }}</p>
-                          <p class="text-sm font-semibold text-gray-500 mt-1">
-                            Tgl: {{ formatDateSimple(process.activity_date) }} | Durasi: {{ formatDuration(process) }}
-                          </p>
-                        </div>
-                        <div class="text-right">
-                          <p class="text-xs font-bold text-gray-400 uppercase">Status: Completed</p>
-                        </div>
+                      <div>
+                        <h4 class="text-2xl font-black text-gray-900 uppercase tracking-tighter">{{ process.process_name }}</h4>
+                        <p class="text-md font-bold text-gray-600">ID Laporan: {{ process.id }}</p>
+                        <p class="text-sm font-semibold text-gray-500 mt-1">
+                          Mulai: {{ formatDateTime(process.activity_date) }}
+                        </p>
+                        <p class="text-sm font-semibold text-gray-500">
+                          Selesai: {{ formatDateTime(process.completed_at) }}
+                        </p>
+                        <p class="text-sm font-semibold text-gray-500">
+                          Durasi: {{ formatDuration(process) }}
+                        </p>
                       </div>
                     </div>
-
+                    </div>
                     <div class="overflow-x-auto mb-10">
                       <table class="w-full border-collapse border-2 border-gray-800 text-sm">
                         <thead>
                           <tr class="bg-gray-100">
                             <th colspan="3" class="border-2 border-gray-800 px-4 py-3 text-center font-black uppercase bg-gray-200">KWh</th>
-                            <th :colspan="getUniqueMaterials(process).length" class="border-2 border-gray-800 px-4 py-3 text-center font-black uppercase bg-blue-50 text-blue-900">Bahan Masuk</th>
+                            <th :colspan="getGroupedMaterials(process).length || 1" class="border-2 border-gray-800 px-4 py-3 text-center font-black uppercase bg-blue-50 text-blue-900">Bahan Masuk</th>
                             <th rowspan="2" class="border-2 border-gray-800 px-4 py-3 text-center font-black uppercase align-middle bg-green-50 text-green-900">Hasil (Kg)</th>
                           </tr>
                           <tr class="bg-gray-50">
                             <th class="border-2 border-gray-800 px-3 py-2 text-center font-bold">Awal</th>
                             <th class="border-2 border-gray-800 px-3 py-2 text-center font-bold">Akhir</th>
                             <th class="border-2 border-gray-800 px-3 py-2 text-center font-bold text-red-600">Pemakaian</th>
-                            <th v-for="mat in getUniqueMaterials(process)" :key="mat.name" class="border-2 border-gray-800 px-3 py-2 text-center font-bold">
-                              {{ mat.name }}<br>
-                              <span class="text-xs font-normal text-gray-500">Ember #{{ mat.container }}</span>
-                            </th>
+                            <template v-if="getGroupedMaterials(process).length > 0">
+                              <th v-for="mat in getGroupedMaterials(process)" :key="mat.material_id" class="border-2 border-gray-800 px-3 py-2 text-center font-bold">
+                                {{ mat.material_name }}
+                              </th>
+                            </template>
+                            <template v-else>
+                              <th class="border-2 border-gray-800 px-3 py-2 text-center font-bold text-gray-400">Belum ada material</th>
+                            </template>
                           </tr>
                         </thead>
                         <tbody class="divide-y-2 divide-gray-800">
@@ -188,13 +193,68 @@
                               {{ (process.kwh_end - process.kwh_start).toFixed(2) }}
                             </td>
                             
-                            <td v-for="mat in getUniqueMaterials(process)" :key="mat.key" class="border-2 border-gray-800 px-4 py-6 text-center">
-                              <div class="font-medium">{{ mat.qty }}</div>
-                              <div v-if="mat.content" class="text-xs text-gray-500 mt-1">{{ mat.content }}</div>
-                            </td>
+                            <template v-if="getGroupedMaterials(process).length > 0">
+                              <td v-for="mat in getGroupedMaterials(process)" :key="mat.material_id" class="border-2 border-gray-800 px-4 py-6 text-center">
+                                <div class="font-black text-blue-700">{{ mat.total_qty }} kg</div>
+                                <div class="text-xs text-gray-500 mt-1">({{ mat.containers.length }} ember)</div>
+                              </td>
+                            </template>
+                            <template v-else>
+                              <td class="border-2 border-gray-800 px-4 py-6 text-center text-gray-400">-</td>
+                            </template>
                             
                             <td class="border-2 border-gray-800 px-4 py-6 text-center font-black text-green-700 bg-green-100">
                               {{ formatNumber(process.output_amount) }}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <h5 class="text-sm font-black uppercase mb-4 text-gray-500 border-l-4 border-blue-600 pl-2">Detail Material Per-Ember</h5>
+                    <div class="overflow-x-auto mb-10">
+                      <table class="w-full border-collapse border-2 border-gray-800 text-sm">
+                        <thead class="bg-gray-100">
+                          <tr>
+                            <th class="border-2 border-gray-800 px-4 py-3 text-center font-bold">No</th>
+                            <th class="border-2 border-gray-800 px-4 py-3 text-left font-bold">Nama Material</th>
+                            <th class="border-2 border-gray-800 px-4 py-3 text-center font-bold">Ember #</th>
+                            <th class="border-2 border-gray-800 px-4 py-3 text-center font-bold">Berat (kg)</th>
+                            <th class="border-2 border-gray-800 px-4 py-3 text-center font-bold">Foto Bukti</th>
+                          </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y-2 divide-gray-800">
+                          <tr v-if="getAllMaterialContainers(process).length === 0">
+                            <td colspan="5" class="border-2 border-gray-800 px-4 py-6 text-center text-gray-500 italic">
+                              Tidak ada data material
+                            </td>
+                          </tr>
+                          <tr v-for="(item, idx) in getAllMaterialContainers(process)" :key="`${item.material_name}-${item.container_number}`" class="hover:bg-gray-50">
+                            <td class="border-2 border-gray-800 px-4 py-3 text-center text-gray-600">{{ idx + 1 }}</td>
+                            <td class="border-2 border-gray-800 px-4 py-3 font-semibold">{{ item.material_name }}</td>
+                            <td class="border-2 border-gray-800 px-4 py-3 text-center font-mono bg-blue-50">{{ item.container_number }}</td>
+                            <td class="border-2 border-gray-800 px-4 py-3 text-center font-bold text-blue-700">{{ item.qty }}</td>
+                            <td class="border-2 border-gray-800 px-4 py-3 text-center">
+                              <div v-if="item.images && item.images.length > 0" class="flex justify-center gap-3 flex-wrap">
+                                <div v-for="(img, imgIdx) in item.images" :key="imgIdx" class="relative group">
+                                  <img 
+                                    :src="img.url" 
+                                    class="w-16 h-16 object-cover rounded border border-gray-300 cursor-pointer transition hover:brightness-90"
+                                    @click="openImagePreview(img.url)"
+                                    alt="Foto material"
+                                  >
+                                  <button 
+                                    @click.stop="downloadImage(img.url, `material-${item.material_name}-${item.container_number}-${imgIdx + 1}.jpg`)"
+                                    class="absolute -top-2 -right-2 bg-white text-gray-700 rounded-full p-1 shadow-md border border-gray-200 hover:bg-gray-100 hover:text-blue-600 transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100 z-10"
+                                    title="Download Gambar"
+                                  >
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              </div>
+                              <span v-else class="text-xs text-gray-400 italic">Tidak ada foto</span>
                             </td>
                           </tr>
                         </tbody>
@@ -342,7 +402,10 @@
           <div v-if="expandedRows.includes(process.id) && process.status === 'completed'" class="p-4 bg-gray-50 border-t border-gray-200">
             <div class="bg-white border border-gray-300 rounded-lg p-4">
               <h4 class="text-lg font-bold text-gray-900 mb-2">{{ process.process_name }}</h4>
-              <p class="text-xs text-gray-500 mb-4">ID: {{ process.id }} | Durasi: {{ formatDuration(process) }}</p>
+              <p class="text-xs text-gray-500 mb-1">ID: {{ process.id }}</p>
+              <p class="text-xs text-gray-500 mb-1">Mulai: {{ formatDateTime(process.activity_date) }}</p>
+              <p class="text-xs text-gray-500 mb-1">Selesai: {{ formatDateTime(process.completed_at) }}</p>
+              <p class="text-xs text-gray-500 mb-4">Durasi: {{ formatDuration(process) }}</p>
               
               <div class="mb-4">
                 <h5 class="font-bold text-sm mb-2 text-gray-700">KWh</h5>
@@ -363,18 +426,59 @@
               </div>
 
               <div class="mb-4">
-                <h5 class="font-bold text-sm mb-2 text-gray-700">Bahan Masuk</h5>
+                <h5 class="font-bold text-sm mb-2 text-gray-700">Bahan Masuk (Total)</h5>
                 <div class="space-y-2 text-xs">
-                  <div v-for="mat in getUniqueMaterials(process)" :key="mat.key" class="bg-blue-50 p-2 rounded">
-                    <div class="flex justify-between items-start">
-                      <div class="flex-1">
-                        <span class="font-bold">{{ mat.name }}</span>
-                        <span class="text-gray-500 ml-1">(Ember #{{ mat.container }})</span>
-                        <div v-if="mat.content" class="text-gray-600 text-xs mt-1">{{ mat.content }}</div>
+                  <template v-if="getGroupedMaterials(process).length > 0">
+                    <div v-for="mat in getGroupedMaterials(process)" :key="mat.material_id" class="bg-blue-50 p-2 rounded">
+                      <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                          <span class="font-bold">{{ mat.material_name }}</span>
+                          <span class="text-gray-500 ml-1">({{ mat.containers.length }} ember)</span>
+                        </div>
+                        <span class="font-bold text-blue-700">{{ mat.total_qty }} kg</span>
                       </div>
-                      <span class="font-bold text-blue-700">{{ mat.qty }} kg</span>
                     </div>
-                  </div>
+                  </template>
+                  <p v-else class="text-gray-400 italic">Belum ada material</p>
+                </div>
+              </div>
+
+              <div class="mb-4">
+                <h5 class="font-bold text-sm mb-2 text-gray-700">Detail Per-Ember</h5>
+                <div class="space-y-2">
+                  <template v-if="getAllMaterialContainers(process).length > 0">
+                    <div v-for="(item, idx) in getAllMaterialContainers(process)" :key="`${item.material_name}-${item.container_number}`" 
+                         class="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                      <div class="flex justify-between items-start mb-2">
+                        <div>
+                          <p class="font-bold text-xs">{{ item.material_name }}</p>
+                          <p class="text-xs text-gray-500">Ember #{{ item.container_number }}</p>
+                        </div>
+                        <p class="font-bold text-blue-700">{{ item.qty }} kg</p>
+                      </div>
+                      <div v-if="item.images && item.images.length > 0" class="flex gap-3 overflow-x-auto pb-2">
+                        <div v-for="(img, imgIdx) in item.images" :key="imgIdx" class="relative flex-shrink-0">
+                          <img 
+                            :src="img.url" 
+                            class="w-16 h-16 object-cover rounded border cursor-pointer"
+                            @click="openImagePreview(img.url)"
+                            alt="Foto"
+                          >
+                          <button 
+                            @click.stop="downloadImage(img.url, `material-${item.material_name}-${item.container_number}-${imgIdx + 1}.jpg`)"
+                            class="absolute -top-2 -right-2 bg-white text-gray-700 rounded-full p-1 shadow-md border border-gray-200 z-10"
+                            title="Download Gambar"
+                          >
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                      <p v-else class="text-xs text-gray-400 italic">Tidak ada foto</p>
+                    </div>
+                  </template>
+                   <p v-else class="text-gray-400 italic text-xs">Tidak ada detail material</p>
                 </div>
               </div>
 
@@ -413,11 +517,13 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue' // Ditambahkan 'computed'
+// Imports
+import { ref, computed } from 'vue'
 import ImageGalleryViewer from '~/components/common/ImageGalleryViewer.vue'
 import { useProcessingStore } from '~/stores/useProcessingStore'
 import * as XLSX from 'xlsx'
 
+// Props & Emits
 const props = defineProps({
   processes: { type: Array, default: () => [] },
   loading: { type: Boolean, default: false }
@@ -425,69 +531,205 @@ const props = defineProps({
 
 const emit = defineEmits(['complete', 'add-new', 'manage-materials', 'input-kwh'])
 
+// Store & State
 const processingStore = useProcessingStore()
 const expandedRows = ref([])
 const loadingMaterials = ref(null)
 
-// --- Sorting Logic Added Here ---
+// Computed
 const sortedProcesses = computed(() => {
   if (!props.processes) return []
-  // Copy array dan urutkan descending (Terbaru -> Terlama)
   return [...props.processes].sort((a, b) => {
     const dateA = new Date(a.activity_date || 0)
     const dateB = new Date(b.activity_date || 0)
     return dateB - dateA
   })
 })
-// --------------------------------
 
+// Formatting Helpers
 const formatDateSimple = (dt) => dt ? new Date(dt).toLocaleDateString('id-ID') : '-'
 const formatNumber = (num) => num ? parseFloat(num).toFixed(2) : '0.00'
 
+const formatDateTime = (dt) => {
+  if (!dt) return '-'
+  
+  // Parse sebagai timestamp lokal tanpa konversi timezone
+  const dateStr = String(dt).replace(' ', 'T')
+  const date = new Date(dateStr)
+  
+  if (isNaN(date.getTime())) return '-'
+  
+  // Format manual tanpa timezone conversion
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = date.toLocaleString('id-ID', { month: 'short' })
+  const year = date.getFullYear()
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  
+  return `${day} ${month} ${year}, ${hours}:${minutes}`
+}
+
 const formatDate = (dt) => {
   if (!dt) return '-'
-  return new Date(dt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+  const dateStr = String(dt).replace(' ', 'T')
+  const date = new Date(dateStr)
+  if (isNaN(date.getTime())) return '-'
+  
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = date.toLocaleString('id-ID', { month: 'short' })
+  const year = date.getFullYear()
+  return `${day} ${month} ${year}`
 }
 
 const formatTime = (dt) => {
   if (!dt) return '-'
-  return new Date(dt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+  const dateStr = String(dt).replace(' ', 'T')
+  const date = new Date(dateStr)
+  if (isNaN(date.getTime())) return '-'
+  
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${hours}:${minutes}`
 }
 
 const formatDuration = (p) => {
-  if (!p.activity_date || !p.completed_at) return '-'
-  const hrs = Math.abs(new Date(p.completed_at) - new Date(p.activity_date)) / 36e5
-  return `${hrs.toFixed(0)} jam`
+  const startStr = p.start_datetime || p.activity_date
+  const endStr = p.end_datetime || p.completed_at
+
+  if (!startStr || !endStr) return '-'
+
+  // Parse sebagai timestamp lokal
+  const startFormatted = String(startStr).replace(' ', 'T')
+  const endFormatted = String(endStr).replace(' ', 'T')
+  
+  const start = new Date(startFormatted)
+  const end = new Date(endFormatted)
+
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) return '-'
+
+  const diffMs = end - start
+  const hours = diffMs / (1000 * 60 * 60)
+  
+  return `${Math.abs(hours).toFixed(1)} jam`
 }
 
-// ✅ Get unique materials dengan container info
-const getUniqueMaterials = (process) => {
-  const materials = getMaterials(process)
-  return materials.map((m, idx) => ({
-    key: `${m.material_id}-${m.container_number}`,
-    name: m.material_name,
-    container: m.container_number || idx + 1,
-    content: m.container_content || '',
-    qty: parseFloat(m.qty).toFixed(2)
-  }))
-}
-
-const getMaterials = (process) => {
-  if (process.materials && Array.isArray(process.materials)) {
-    return process.materials
+// HELPER: Safe JSON Parse for Images (Tiru cara KWh Awal)
+// Fungsi ini memastikan string JSON dari DB di-convert jadi Array Object yang valid
+const safeParseImages = (imageData) => {
+  if (!imageData) return []
+  
+  // Jika sudah berupa Array, kembalikan langsung
+  if (Array.isArray(imageData)) {
+    return imageData
   }
-  if (process.SB_Material_Used && Array.isArray(process.SB_Material_Used)) {
-    return process.SB_Material_Used.map(item => ({
-      material_id: item.material_id,
-      material_name: item.SB_Material?.material_name || item.material_name || 'Material',
-      container_number: item.container_number || 1,
-      container_content: item.container_content || '',
-      qty: item.qty
-    }))
+  
+  // Jika berupa String, coba parse
+  if (typeof imageData === 'string') {
+    try {
+      // Hapus karakter escape yang berlebihan jika ada (cleaning)
+      const cleaned = imageData.trim()
+      if (cleaned === '[]' || cleaned === '') return []
+      
+      const parsed = JSON.parse(cleaned)
+      return Array.isArray(parsed) ? parsed : []
+    } catch (e) {
+      console.error('Error parsing images JSON:', e, imageData)
+      return []
+    }
   }
+  
   return []
 }
 
+// Data Processing Logic (UPDATED: Handle both Store mapped data and Raw DB data)
+const getMaterials = (process) => {
+  let rawMaterials = []
+  
+  // Case 1: Data sudah di-fetch oleh Store (ada di process.materials)
+  if (process.materials && Array.isArray(process.materials) && process.materials.length > 0) {
+    rawMaterials = process.materials
+  } 
+  // Case 2: Data mentah dari DB (relasi SB_Material_Used)
+  else if (process.SB_Material_Used && Array.isArray(process.SB_Material_Used)) {
+    rawMaterials = process.SB_Material_Used
+  }
+
+  // Unified mapping agar output seragam
+  return rawMaterials.map(item => {
+    // Determine where images are hidden
+    // It could be 'material_images' (from DB/Store raw) or 'images' (if already mapped somewhere else)
+    const rawImg = item.material_images || item.images 
+    const parsedImages = safeParseImages(rawImg)
+
+    // Handle nested SB_Material if coming from raw DB select
+    // Store usually flattens it to material_name
+    const matName = item.material_name || item.SB_Material?.material_name || 'Unknown'
+    
+    // Ensure qty is number
+    const qty = item.qty ? parseFloat(item.qty) : 0
+
+    return {
+      material_id: item.material_id,
+      material_name: matName,
+      container_number: item.container_number || 1,
+      container_content: item.container_content || '',
+      qty: qty,
+      images: parsedImages // Standardize to 'images' for the template
+    }
+  })
+}
+
+// Group materials by name (sum quantities)
+const getGroupedMaterials = (process) => {
+  const materials = getMaterials(process)
+  const grouped = {}
+  
+  materials.forEach(m => {
+    const name = m.material_name || 'Material'
+    if (!grouped[name]) {
+      grouped[name] = {
+        material_id: m.material_id,
+        material_name: name,
+        total_qty: 0,
+        containers: []
+      }
+    }
+    
+    grouped[name].total_qty += parseFloat(m.qty || 0)
+    
+    grouped[name].containers.push({
+      container_number: m.container_number || 1,
+      qty: parseFloat(m.qty || 0),
+      content: m.container_content || '',
+      images: m.images || []
+    })
+  })
+  
+  return Object.values(grouped).map(g => ({
+    ...g,
+    total_qty: g.total_qty.toFixed(2),
+    containers: g.containers.sort((a, b) => a.container_number - b.container_number)
+  }))
+}
+
+// Get all material containers (for detail table)
+const getAllMaterialContainers = (process) => {
+  const materials = getMaterials(process)
+  return materials.map(m => ({
+    material_name: m.material_name || 'Material',
+    container_number: m.container_number || 1,
+    qty: parseFloat(m.qty || 0).toFixed(2),
+    content: m.container_content || '',
+    images: m.images || []
+  })).sort((a, b) => {
+    if (a.material_name !== b.material_name) {
+      return a.material_name.localeCompare(b.material_name)
+    }
+    return a.container_number - b.container_number
+  })
+}
+
+// Actions
 const toggleDetails = async (processId) => {
   const index = expandedRows.value.indexOf(processId)
   if (index > -1) {
@@ -495,6 +737,8 @@ const toggleDetails = async (processId) => {
   } else {
     expandedRows.value.push(processId)
     const process = props.processes.find(p => p.id === processId)
+    
+    // Cek apakah material perlu di-fetch
     const currentMaterials = getMaterials(process)
     if (process && (!currentMaterials || currentMaterials.length === 0)) {
        loadingMaterials.value = processId
@@ -504,44 +748,78 @@ const toggleDetails = async (processId) => {
   }
 }
 
+const openImagePreview = (url) => {
+  window.open(url, '_blank')
+}
+
+// Download Image Helper
+const downloadImage = async (url, filename) => {
+  try {
+    const response = await fetch(url, { mode: 'cors' })
+    if (!response.ok) throw new Error('Network response was not ok')
+    const blob = await response.blob()
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = filename || 'download.jpg'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(link.href)
+  } catch (e) {
+    console.error('Download error:', e)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename || 'download.jpg'
+    link.target = '_blank'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+}
+
+// Export Logic
 const exportExcel = async (process) => {
   try {
-    const materials = getMaterials(process)
+    const groupedMats = getGroupedMaterials(process)
+    const allContainers = getAllMaterialContainers(process)
     const kwhUsage = (process.kwh_end - process.kwh_start).toFixed(2)
-    
-    const uniqueMats = getUniqueMaterials(process)
-    const matCols = uniqueMats.length
     
     const wsData = [
       [process.process_name],
       [`ID: ${process.id}`],
       [`Tgl: ${formatDateSimple(process.activity_date)}`, '', '', '', '', '', `${formatDuration(process)}`],
       ['', '', '', '', '', '', ''],
-      ['', 'Kwh', '', '', 'Bahan Masuk', ...Array(matCols - 1).fill(''), 'Hasil (Kg)'],
-      ['Awal', 'Akhir', 'Pemakaian', ...uniqueMats.map(m => `${m.name} (Ember #${m.container})`), '']
+      ['', 'KWh', '', '', 'Bahan Masuk (Total)', '', 'Hasil (Kg)'],
+      ['Awal', 'Akhir', 'Pemakaian', ...groupedMats.map(m => `${m.material_name} (${m.containers.length} ember)`), '']
     ]
 
     const dataRow = [
       process.kwh_start,
       process.kwh_end,
       kwhUsage,
-      ...uniqueMats.map(m => m.qty),
+      ...groupedMats.map(m => m.total_qty),
       formatNumber(process.output_amount)
     ]
     wsData.push(dataRow)
     
-    const grandTotal = uniqueMats.reduce((sum, m) => sum + parseFloat(m.qty), 0).toFixed(2)
-    wsData.push(['', '', '', ...Array(matCols).fill(''), `Total: ${grandTotal} kg`])
+    const grandTotal = groupedMats.reduce((sum, m) => sum + parseFloat(m.total_qty), 0).toFixed(2)
+    wsData.push(['', '', '', ...Array(groupedMats.length).fill(''), `Total: ${grandTotal} kg`])
     
-    if (uniqueMats.some(m => m.content)) {
-      wsData.push(['', '', '', '', '', '', ''])
-      wsData.push(['Keterangan Isi Ember:', '', '', '', '', '', ''])
-      uniqueMats.forEach(m => {
-        if (m.content) {
-          wsData.push([`Ember #${m.container} (${m.name}):`, m.content, '', '', '', '', ''])
-        }
-      })
-    }
+    // Detail per-ember (UPDATED: Removed Isi Ember)
+    wsData.push(['', '', '', '', '', '', ''])
+    wsData.push(['DETAIL MATERIAL PER-EMBER', '', '', '', '', '', ''])
+    wsData.push(['No', 'Material', 'Ember #', 'Berat (kg)', 'Ada Foto?', ''])
+    
+    allContainers.forEach((item, idx) => {
+      wsData.push([
+        idx + 1,
+        item.material_name,
+        item.container_number,
+        item.qty,
+        (item.images && item.images.length > 0) ? 'Ya' : 'Tidak',
+        ''
+      ])
+    })
     
     if (process.notes && process.notes !== '-') {
       wsData.push(['', '', '', '', '', '', ''])
@@ -551,7 +829,7 @@ const exportExcel = async (process) => {
 
     const wb = XLSX.utils.book_new()
     const ws = XLSX.utils.aoa_to_sheet(wsData)
-    ws['!cols'] = Array(7).fill({ wch: 15 })
+    ws['!cols'] = Array(6).fill({ wch: 15 })
     XLSX.utils.book_append_sheet(wb, ws, 'Laporan')
     XLSX.writeFile(wb, `${process.process_name.replace(/\s+/g, '_')}_${formatDateSimple(process.activity_date).replace(/\//g, '-')}.xlsx`)
   } catch (err) {
@@ -560,6 +838,7 @@ const exportExcel = async (process) => {
   }
 }
 
+// Export PDF (FIXED COLORS: FORCE WHITE BACKGROUND)
 const exportPDF = async (process) => {
   try {
     const currentMaterials = getMaterials(process)
@@ -584,26 +863,40 @@ const exportPDF = async (process) => {
     doc.setFontSize(18).setFont(undefined, 'bold')
     doc.text(process.process_name.toUpperCase(), leftMargin, y)
     y += 8
-    
+
     doc.setFontSize(10).setFont(undefined, 'normal')
     doc.text(`ID: ${process.id}`, leftMargin, y)
     y += 6
-    
-    doc.text(`Tgl: ${formatDateSimple(process.activity_date)} | Durasi: ${formatDuration(process)}`, leftMargin, y)
+
+    // Waktu Mulai
+    doc.text(`Mulai: ${formatDateTime(process.start_datetime)}`, leftMargin, y)
+    y += 5
+
+    // Waktu Selesai
+    doc.text(`Selesai: ${formatDateTime(process.end_datetime)}`, leftMargin, y)
+    y += 5
+
+    // Durasi
+    doc.text(`Durasi: ${formatDuration(process)}`, leftMargin, y)
+    y += 1  // ✅ Spacing lebih kecil sebelum status
+
+    // Status di kanan (sejajar dengan Durasi)
     doc.setFont(undefined, 'bold')
+    doc.setFontSize(9)
     doc.text('STATUS: COMPLETED', rightMargin, y, { align: 'right' })
     doc.setFont(undefined, 'normal')
+    doc.setFontSize(10)
     y += 8
     
     doc.setLineWidth(1.5)
     doc.line(leftMargin, y, rightMargin, y)
     y += 15
 
-    // Table
-    const uniqueMats = getUniqueMaterials(process)
+    // Summary Table (Grouped)
+    const groupedMats = getGroupedMaterials(process)
     const kwhUsage = (process.kwh_end - process.kwh_start).toFixed(2)
     
-    const numMaterials = uniqueMats.length
+    const numMaterials = groupedMats.length
     const colAwal = 25
     const colAkhir = 25
     const colPemakaian = 30
@@ -620,22 +913,37 @@ const exportPDF = async (process) => {
     doc.setDrawColor(0, 0, 0)
     doc.setTextColor(0, 0, 0)
 
+    // Colors matching Web View (R, G, B)
+    const colorGray200 = [229, 231, 235]
+    const colorBlue50 = [239, 246, 255]
+    const colorGreen50 = [240, 253, 244]
+    const colorGray50 = [249, 250, 251]
+
     // ROW 1: Main Headers
     let x = leftMargin
     
-    doc.rect(x, y, kwhTotalWidth, row1H, 'D')
+    // KWH Header
+    doc.setFillColor(...colorGray200)
+    doc.rect(x, y, kwhTotalWidth, row1H, 'FD')
     doc.setFontSize(11).setFont(undefined, 'bold')
+    doc.setTextColor(0, 0, 0)
     doc.text('KWH', x + kwhTotalWidth/2, y + 8, { align: 'center' })
     x += kwhTotalWidth
     
+    // Bahan Masuk Header
     if (numMaterials > 0) {
-      doc.rect(x, y, remainingWidth, row1H, 'D')
+      doc.setFillColor(...colorBlue50)
+      doc.rect(x, y, remainingWidth, row1H, 'FD')
+      doc.setTextColor(30, 58, 138) // Dark blue text
       doc.text('BAHAN MASUK', x + remainingWidth/2, y + 8, { align: 'center' })
       x += remainingWidth
     }
     
-    doc.rect(x, y, colHasil, row1H + row2H, 'D')
+    // Hasil Header
+    doc.setFillColor(...colorGreen50)
+    doc.rect(x, y, colHasil, row1H + row2H, 'FD')
     doc.setFontSize(10)
+    doc.setTextColor(20, 83, 45) // Dark green text
     doc.text('HASIL (KG)', x + colHasil/2, y + 13, { align: 'center' })
     
     y += row1H
@@ -643,25 +951,31 @@ const exportPDF = async (process) => {
     // ROW 2: Sub Headers
     x = leftMargin
     doc.setFontSize(9).setFont(undefined, 'bold')
+    doc.setTextColor(0, 0, 0) // Reset to black
     
-    doc.rect(x, y, colAwal, row2H, 'D')
+    doc.setFillColor(...colorGray50)
+    doc.rect(x, y, colAwal, row2H, 'FD')
     doc.text('Awal', x + colAwal/2, y + 8, { align: 'center' })
     x += colAwal
     
-    doc.rect(x, y, colAkhir, row2H, 'D')
+    doc.setFillColor(...colorGray50)
+    doc.rect(x, y, colAkhir, row2H, 'FD')
     doc.text('Akhir', x + colAkhir/2, y + 8, { align: 'center' })
     x += colAkhir
     
-    doc.rect(x, y, colPemakaian, row2H, 'D')
+    doc.setFillColor(...colorGray50)
+    doc.rect(x, y, colPemakaian, row2H, 'FD')
+    doc.setTextColor(220, 38, 38) // Red text
     doc.text('Pemakaian', x + colPemakaian/2, y + 8, { align: 'center' })
     x += colPemakaian
+    doc.setTextColor(0, 0, 0) // Reset
     
-    doc.setFontSize(7)
-    uniqueMats.forEach(mat => {
-      doc.rect(x, y, colMaterial, row2H, 'D')
-      const lines = doc.splitTextToSize(`${mat.name}\nEmber #${mat.container}`, colMaterial - 4)
-      const textY = y + 5
-      doc.text(lines, x + colMaterial/2, textY, { align: 'center' })
+    doc.setFontSize(8)
+    groupedMats.forEach(mat => {
+      doc.setFillColor(...colorGray50)
+      doc.rect(x, y, colMaterial, row2H, 'FD')
+      const lines = doc.splitTextToSize(mat.material_name, colMaterial - 4)
+      doc.text(lines, x + colMaterial/2, y + 8, { align: 'center' })
       x += colMaterial
     })
     
@@ -671,56 +985,180 @@ const exportPDF = async (process) => {
     x = leftMargin
     doc.setFontSize(11).setFont(undefined, 'normal')
     
-    doc.rect(x, y, colAwal, row3H, 'D')
+    doc.setFillColor(255, 255, 255)
+    doc.rect(x, y, colAwal, row3H, 'FD')
     doc.text(String(process.kwh_start), x + colAwal/2, y + 9.5, { align: 'center' })
     x += colAwal
     
-    doc.rect(x, y, colAkhir, row3H, 'D')
+    doc.setFillColor(255, 255, 255)
+    doc.rect(x, y, colAkhir, row3H, 'FD')
     doc.text(String(process.kwh_end), x + colAkhir/2, y + 9.5, { align: 'center' })
     x += colAkhir
     
-    doc.rect(x, y, colPemakaian, row3H, 'D')
+    doc.setFillColor(254, 242, 242) // Red-50
+    doc.rect(x, y, colPemakaian, row3H, 'FD')
+    doc.setTextColor(220, 38, 38)
+    doc.setFont(undefined, 'bold')
     doc.text(kwhUsage, x + colPemakaian/2, y + 9.5, { align: 'center' })
+    doc.setFont(undefined, 'normal')
+    doc.setTextColor(0, 0, 0)
     x += colPemakaian
     
-    uniqueMats.forEach(mat => {
-      doc.rect(x, y, colMaterial, row3H, 'D')
+    groupedMats.forEach(mat => {
+      doc.setFillColor(255, 255, 255)
+      doc.rect(x, y, colMaterial, row3H, 'FD')
       doc.setFontSize(10)
-      doc.text(mat.qty, x + colMaterial/2, y + 9.5, { align: 'center' })
+      doc.setTextColor(29, 78, 216) // Blue
+      doc.setFont(undefined, 'bold')
+      doc.text(mat.total_qty, x + colMaterial/2, y + 7, { align: 'center' })
+      doc.setFont(undefined, 'normal')
+      doc.setFontSize(7)
+      doc.setTextColor(107, 114, 128) // Gray
+      doc.text(`(${mat.containers.length} ember)`, x + colMaterial/2, y + 12, { align: 'center' })
+      doc.setTextColor(0, 0, 0)
       x += colMaterial
     })
     
-    doc.rect(x, y, colHasil, row3H, 'D')
+    doc.setFillColor(...colorGreen50)
+    doc.rect(x, y, colHasil, row3H, 'FD')
+    doc.setTextColor(21, 128, 61) // Green
     doc.setFont(undefined, 'bold')
     doc.setFontSize(13)
     doc.text(formatNumber(process.output_amount), x + colHasil/2, y + 9.5, { align: 'center' })
     doc.setFont(undefined, 'normal')
+    doc.setTextColor(0, 0, 0)
     
-    y += row3H + 12
+    y += row3H + 15
 
-    // Keterangan Isi Ember
-    if (uniqueMats.some(m => m.content)) {
-      if (y > 240) {
+    // Detail Material Per-Ember Table
+    const allContainers = getAllMaterialContainers(process)
+    
+    if (y > 200) {
+      doc.addPage()
+      y = 20
+    }
+    
+    doc.setFontSize(11).setFont(undefined, 'bold')
+    doc.text('DETAIL MATERIAL PER-EMBER', leftMargin, y)
+    y += 8
+
+    // Table headers
+    const colNo = 10
+    const colName = 65 
+    const colEmber = 25
+    const colQty = 30
+    const colPhoto = 50 
+    const rowHeight = 20
+
+    doc.setFontSize(8).setFont(undefined, 'bold')
+    
+    // Header Background: FORCE WHITE (255, 255, 255) to prevent black issues
+    const headerBg = [255, 255, 255] 
+    
+    x = leftMargin
+    doc.setFillColor(...headerBg)
+    doc.rect(x, y, colNo, 8, 'FD')
+    doc.setTextColor(0, 0, 0)
+    doc.text('No', x + colNo/2, y + 5.5, { align: 'center' })
+    x += colNo
+    
+    doc.setFillColor(...headerBg)
+    doc.rect(x, y, colName, 8, 'FD')
+    doc.text('Material', x + colName/2, y + 5.5, { align: 'center' })
+    x += colName
+    
+    doc.setFillColor(...headerBg)
+    doc.rect(x, y, colEmber, 8, 'FD')
+    doc.text('Ember', x + colEmber/2, y + 5.5, { align: 'center' })
+    x += colEmber
+    
+    doc.setFillColor(...headerBg)
+    doc.rect(x, y, colQty, 8, 'FD')
+    doc.text('Berat (kg)', x + colQty/2, y + 5.5, { align: 'center' })
+    x += colQty
+    
+    doc.setFillColor(...headerBg)
+    doc.rect(x, y, colPhoto, 8, 'FD')
+    doc.text('Foto', x + colPhoto/2, y + 5.5, { align: 'center' })
+    
+    y += 8
+
+    // Table rows
+    doc.setFont(undefined, 'normal')
+    doc.setFontSize(8)
+    
+    for (let i = 0; i < allContainers.length; i++) {
+      const item = allContainers[i]
+      
+      if (y > 270) {
         doc.addPage()
         y = 20
       }
-      doc.setFontSize(10).setFont(undefined, 'bold')
-      doc.text('KETERANGAN ISI EMBER', leftMargin, y)
-      y += 6
-      doc.setFontSize(8).setFont(undefined, 'normal')
-      uniqueMats.forEach(mat => {
-        if (mat.content) {
-          doc.text(`• Ember #${mat.container} (${mat.name}): ${mat.content}`, leftMargin + 2, y)
-          y += 5
+      
+      x = leftMargin
+      // Force White Background for every cell in row
+      
+      // No
+      doc.setFillColor(255, 255, 255)
+      doc.rect(x, y, colNo, rowHeight, 'FD')
+      doc.text(String(i + 1), x + colNo/2, y + 5, { align: 'center' })
+      x += colNo
+      
+      // Material Name
+      doc.setFillColor(255, 255, 255)
+      doc.rect(x, y, colName, rowHeight, 'FD')
+      const nameLines = doc.splitTextToSize(item.material_name, colName - 4)
+      doc.text(nameLines, x + 2, y + 5)
+      x += colName
+      
+      // Ember
+      doc.setFillColor(255, 255, 255)
+      doc.rect(x, y, colEmber, rowHeight, 'FD')
+      doc.text(String(item.container_number), x + colEmber/2, y + 5, { align: 'center' })
+      x += colEmber
+      
+      // Qty
+      doc.setFillColor(255, 255, 255)
+      doc.rect(x, y, colQty, rowHeight, 'FD')
+      doc.setFont(undefined, 'bold')
+      doc.text(item.qty, x + colQty/2, y + 5, { align: 'center' })
+      doc.setFont(undefined, 'normal')
+      x += colQty
+      
+      // Photo
+      doc.setFillColor(255, 255, 255)
+      doc.rect(x, y, colPhoto, rowHeight, 'FD')
+      if (item.images && item.images.length > 0) {
+        try {
+          const base64 = await getBase64ImageFromURL(item.images[0].url)
+          if (base64) {
+            const imgSize = Math.min(colPhoto - 4, rowHeight - 4)
+            doc.addImage(base64, 'JPEG', x + 2, y + 2, imgSize, imgSize)
+          }
+        } catch (e) {
+          doc.setFontSize(6)
+          doc.text('Error', x + colPhoto/2, y + 10, { align: 'center' })
+          doc.setFontSize(8)
         }
-      })
-      y += 6
+      } else {
+        doc.setFontSize(6)
+        doc.text('Tidak ada', x + colPhoto/2, y + 10, { align: 'center' })
+        doc.setFontSize(8)
+      }
+      
+      y += rowHeight
     }
 
-    // Images
-    doc.setFontSize(10).setFont(undefined, 'bold')
-    doc.setTextColor(107, 114, 128)
-    doc.text('DOKUMENTASI VISUAL', leftMargin, y)
+    y += 10
+
+    // Images section (KWh & Output)
+    if (y > 200) {
+      doc.addPage()
+      y = 20
+    }
+
+    doc.setFontSize(11).setFont(undefined, 'bold')
+    doc.text('DOKUMENTASI KWH & HASIL', leftMargin, y)
     y += 8
 
     const sectionWidth = (tableWidth - 10) / 3

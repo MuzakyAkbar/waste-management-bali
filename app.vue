@@ -3,6 +3,11 @@
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>
+    
+    <!-- Toast Container for Global Notifications -->
+    <ClientOnly>
+      <ToastContainer />
+    </ClientOnly>
   </div>
 </template>
 

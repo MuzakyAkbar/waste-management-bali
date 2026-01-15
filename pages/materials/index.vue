@@ -72,6 +72,11 @@ import { ref, onMounted } from 'vue'
 import { useMaterialStore } from '~/stores/useMaterialStore'
 import { useLocationStore } from '~/stores/useLocationStore'
 
+// Add middleware protection for SuperAdmin only
+definePageMeta({
+  middleware: 'superadmin'
+})
+
 const materialStore = useMaterialStore()
 const locationStore = useLocationStore()
 

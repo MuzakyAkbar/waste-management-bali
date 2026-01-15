@@ -31,14 +31,15 @@
 
                 <div>
                   <label class="block text-sm font-semibold text-gray-700 mb-2">
-                    Created Date *
+                    Created Date
                   </label>
                   <input 
                     type="date" 
-                    v-model="form.created_date" 
-                    class="block w-full border-gray-300 rounded-lg shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm p-2.5 border" 
+                    :value="form.created_date" 
+                    disabled
+                    class="block w-full border-gray-300 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed sm:text-sm p-2.5 border" 
                   />
-                  <p class="mt-1 text-xs text-gray-500">Tanggal pembuatan record proses</p>
+                  <p class="mt-1 text-xs text-gray-500">Tanggal otomatis diisi hari ini (tidak dapat diubah)</p>
                 </div>
               </div>
 
@@ -48,7 +49,7 @@
                     <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
                   </svg>
                   <p class="text-xs text-blue-800">
-                    Setelah proses dibuat, Anda akan bisa menambahkan data KWh awal dan material input.
+                    Setelah proses dibuat, Anda perlu mengisi KWh awal untuk memulai proses, lalu tambahkan material input.
                   </p>
                 </div>
               </div>
@@ -99,60 +100,56 @@ const processingStore = useProcessingStore()
 const loading = ref(false)
 const error = ref(null)
 
+// Helper: Ambil tanggal hari ini format YYYY-MM-DD (Local Time)
+const getTodayDate = () => {
+  return new Date().toLocaleDateString('en-CA')
+}
+
 const form = ref({
   process_name: '',
-  created_date: new Date().toISOString().split('T')[0]
+  created_date: getTodayDate()
 })
 
+// Reset form saat modal dibuka
 watch(() => props.show, (newVal) => {
   if (newVal) {
     form.value = {
       process_name: '',
-      created_date: new Date().toISOString().split('T')[0]
+      created_date: getTodayDate()
     }
     error.value = null
     loading.value = false
-    
-    console.log('📝 Form reset untuk modal baru')
   }
 })
 
 const handleSubmit = async () => {
   error.value = null
   
-  // Validation
-  if (!form.value.process_name || !form.value.created_date) {
-    return error.value = 'Mohon isi semua field yang wajib.'
+  if (!form.value.process_name) {
+    return error.value = 'Mohon isi Nama Proses.'
   }
 
   loading.value = true
 
   try {
-    // 1. AMBIL USER ID
     let userId = null
-    
     if (authStore.user) {
       userId = authStore.user.user_id || authStore.user.id
     } else {
-      try {
-        const storedUser = JSON.parse(localStorage.getItem('user'))
-        if (storedUser) userId = storedUser.user_id || storedUser.id
-      } catch (e) {
-        console.error('❌ Failed to parse user from storage', e)
-      }
+      const storedUser = JSON.parse(localStorage.getItem('user'))
+      if (storedUser) userId = storedUser.user_id || storedUser.id
     }
     
-    if (!userId) {
-      throw new Error('Sesi Anda telah berakhir. Silakan login ulang.')
-    }
+    if (!userId) throw new Error('Sesi Anda telah berakhir. Silakan login ulang.')
 
-    console.log('✅ User ID found:', userId)
+    // ✅ FIX: Format manual untuk created_at (tanpa timezone)
+    const now = new Date()
+    const created_at = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`
 
-    // 2. CREATE PROCESS (hanya nama dan tanggal)
     const createData = {
       created_by: userId,
       process_name: form.value.process_name,
-      created_at: new Date(form.value.created_date).toISOString()
+      created_at: created_at
     }
 
     console.log('💾 Creating process:', createData)
@@ -162,8 +159,6 @@ const handleSubmit = async () => {
     if (!result.success) {
       throw new Error(result.error || 'Gagal membuat proses')
     }
-
-    console.log('✅ Process created successfully')
 
     emit('save')
     emit('close')

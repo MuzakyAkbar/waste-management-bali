@@ -147,7 +147,6 @@ const handleImageChanged = (images) => {
 const handleSubmit = async () => {
   error.value = null
   
-  // Validation
   if (!form.value.start_date || !form.value.start_time) {
     return error.value = 'Mohon isi tanggal dan waktu mulai.'
   }
@@ -161,7 +160,8 @@ const handleSubmit = async () => {
   loading.value = true
 
   try {
-    const start_datetime = `${form.value.start_date}T${form.value.start_time}:00`
+    // ✅ FIX: Format tanpa 'T' separator
+    const start_datetime = `${form.value.start_date} ${form.value.start_time}:00`
     
     const kwhData = {
       start_datetime: start_datetime,

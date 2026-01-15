@@ -143,7 +143,6 @@ const closeModal = () => emit('close')
 const handleSubmit = async () => {
   error.value = null
   
-  // Validation
   if (!form.value.kwh_end || !form.value.output_amount) {
     return error.value = 'Data wajib diisi.'
   }
@@ -154,7 +153,7 @@ const handleSubmit = async () => {
   loading.value = true
 
   try {
-    // ✅ PERBAIKAN: Upload multiple images
+    // Upload multiple images
     const kwhEndImagesArray = []
     for (const file of kwhEndFiles.value) {
       const uploadRes = await processingStore.uploadImage(
@@ -196,9 +195,9 @@ const handleSubmit = async () => {
       output: outputImagesArray.length
     })
 
-    // ✅ PERBAIKAN: Simpan sebagai array
+    // ✅ FIX: Format tanpa 'T' separator
     const completionData = {
-      end_datetime: `${form.value.end_date}T${form.value.end_time}:00`,
+      end_datetime: `${form.value.end_date} ${form.value.end_time}:00`,
       kwh_end: parseFloat(form.value.kwh_end),
       output_amount_kg: parseFloat(form.value.output_amount),
       kwh_end_images: kwhEndImagesArray,

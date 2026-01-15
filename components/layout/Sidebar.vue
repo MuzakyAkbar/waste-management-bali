@@ -1,3 +1,4 @@
+<!-- components/layout/Sidebar.vue - UPDATED -->
 <template>
   <div>
     <Transition name="fade">
@@ -63,8 +64,9 @@
 
       <nav class="p-4 space-y-1 overflow-y-auto h-[calc(100vh-8rem)]">
         <template v-for="item in navigationItems" :key="item.name">
+          <!-- Regular Menu Item -->
           <NuxtLink
-            v-if="!item.soon"
+            v-if="!item.soon && !item.children"
             :to="item.to"
             class="flex items-center px-3 py-2.5 rounded-lg transition-colors group"
             :class="isActive(item.to) 
@@ -86,6 +88,62 @@
             </span>
           </NuxtLink>
 
+          <!-- Menu with Submenu -->
+          <div v-else-if="!item.soon && item.children">
+            <button
+              @click="toggleSubmenu(item.name)"
+              class="flex items-center justify-between w-full px-3 py-2.5 rounded-lg transition-colors group"
+              :class="isParentActive(item) 
+                ? 'bg-primary-50 text-primary-600 font-medium' 
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'"
+              :title="collapsed ? item.name : ''"
+            >
+              <div class="flex items-center">
+                <component 
+                  :is="item.icon" 
+                  class="w-5 h-5 flex-shrink-0 transition-colors"
+                  :class="isParentActive(item) ? 'text-primary-600' : 'text-gray-400 group-hover:text-gray-500'" 
+                />
+                <span 
+                  class="ml-3 whitespace-nowrap transition-opacity duration-300"
+                  :class="collapsed ? 'opacity-0 w-0 hidden' : 'opacity-100'"
+                >
+                  {{ item.name }}
+                </span>
+              </div>
+              <svg 
+                v-if="!collapsed"
+                class="w-4 h-4 transition-transform duration-200"
+                :class="{ 'rotate-180': openSubmenus.includes(item.name) }"
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            <!-- Submenu Items -->
+            <Transition name="slide-down">
+              <div v-if="!collapsed && openSubmenus.includes(item.name)" class="ml-8 mt-1 space-y-1">
+                <NuxtLink
+                  v-for="child in item.children"
+                  :key="child.name"
+                  :to="child.to"
+                  class="flex items-center px-3 py-2 rounded-lg text-sm transition-colors"
+                  :class="isActive(child.to)
+                    ? 'bg-primary-50 text-primary-600 font-medium'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'"
+                  @click="handleLinkClick"
+                >
+                  <span class="w-1.5 h-1.5 rounded-full mr-2" :class="isActive(child.to) ? 'bg-primary-600' : 'bg-gray-400'"></span>
+                  {{ child.name }}
+                </NuxtLink>
+              </div>
+            </Transition>
+          </div>
+
+          <!-- Coming Soon Item -->
           <div
             v-else
             class="flex items-center px-3 py-2.5 rounded-lg text-gray-400 cursor-not-allowed group relative"
@@ -135,10 +193,11 @@
 <script setup>
 import { 
   HomeIcon, 
-  SwatchIcon, // Untuk Processing (pake icon yg mirip)
-  CubeIcon, // Untuk Materials
-  MapPinIcon, // Untuk Locations
-  Cog6ToothIcon // Untuk Settings
+  SwatchIcon,
+  CubeIcon,
+  MapPinIcon,
+  BoltIcon, // For RecapSummary
+  Cog6ToothIcon
 } from '@heroicons/vue/24/outline'
 
 const props = defineProps({
@@ -153,11 +212,14 @@ const route = useRoute()
 const authStore = useAuthStore()
 const router = useRouter()
 
-// Components map for dynamic rendering
-// Kita buat object icon manual jika tidak menggunakan library heroicons secara langsung
-// Atau definisikan SVG langsung di template jika ingin tanpa dependency tambahan.
-// Di sini saya pakai "component :is" dengan asumsi Anda mungkin setup auto-import heroicons.
-// Jika tidak, saya akan ganti dengan SVG manual di bawah.
+// Icon for RecapSummary (using SVG component)
+const RecapSummaryIcon = {
+  template: `
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+    </svg>
+  `
+}
 
 // --- DEFINISI NAVIGASI ---
 const navigationItems = [
@@ -185,6 +247,22 @@ const navigationItems = [
     icon: MapPinIcon, 
     soon: false
   },
+  // ✅ NEW: RecapSummary Menu with Submenu
+  {
+    name: 'RecapSummary',
+    icon: RecapSummaryIcon,
+    soon: false,
+    children: [
+      {
+        name: 'Recap',
+        to: '/RecapSummary/recap'
+      },
+      {
+        name: 'Monthly Summary',
+        to: '/RecapSummary/summary'
+      }
+    ]
+  },
   { 
     name: 'Settings', 
     to: '/settings', 
@@ -194,7 +272,6 @@ const navigationItems = [
 ]
 
 // --- LOGIC ---
-
 const isOpen = computed({
   get: () => props.modelValue,
   set: (value) => emit('update:modelValue', value)
@@ -202,6 +279,7 @@ const isOpen = computed({
 
 const collapsed = ref(false)
 const isMobile = ref(false)
+const openSubmenus = ref(['RecapSummary']) // Default open RecapSummary submenu
 
 const isActive = (path) => {
   if (path === '/dashboard' && route.path === '/dashboard') return true
@@ -209,9 +287,30 @@ const isActive = (path) => {
   return false
 }
 
+const isParentActive = (item) => {
+  if (!item.children) return false
+  return item.children.some(child => isActive(child.to))
+}
+
+const toggleSubmenu = (name) => {
+  if (collapsed.value) return
+  
+  const index = openSubmenus.value.indexOf(name)
+  if (index > -1) {
+    openSubmenus.value.splice(index, 1)
+  } else {
+    openSubmenus.value.push(name)
+  }
+}
+
 const toggleCollapse = () => {
   if (!isMobile.value) {
     collapsed.value = !collapsed.value
+    if (collapsed.value) {
+      openSubmenus.value = []
+    } else {
+      openSubmenus.value = ['RecapSummary']
+    }
   }
 }
 
@@ -230,7 +329,7 @@ const handleLinkClick = () => {
 const handleLogout = async () => {
   await authStore.logout()
   router.push('/login')
-  emit('logout') // Emit event agar parent tau jika perlu
+  emit('logout')
 }
 
 const checkScreenSize = () => {
@@ -263,5 +362,16 @@ onUnmounted(() => {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+.slide-down-enter-active,
+.slide-down-leave-active {
+  transition: all 0.3s ease;
+}
+
+.slide-down-enter-from,
+.slide-down-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
 }
 </style>
