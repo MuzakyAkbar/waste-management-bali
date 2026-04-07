@@ -58,7 +58,6 @@
           </div>
 
           <div class="space-y-4">
-            <!-- ✅ PERBAIKAN: Support multiple images -->
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-2">Foto KWh Akhir (Max 3)</label>
               <ImageUpload 
@@ -67,15 +66,36 @@
                 @images-changed="(imgs) => handleImageChange('kwh', imgs)" 
               />
             </div>
+            
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-2">Foto Hasil Output (Max 3)</label>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Foto Hasil Output (Max 4)</label>
               <ImageUpload 
-                :max-images="3" 
+                :max-images="4" 
                 label="Foto Tumpukan/Hasil" 
                 @images-changed="(imgs) => handleImageChange('output', imgs)" 
               />
             </div>
           </div>
+          <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Tekstur Hasil</label>
+              <select v-model="form.output_texture" class="block w-full border-gray-300 rounded-lg p-2.5 border bg-white">
+                <option value="" disabled>-- Pilih Tekstur --</option>
+                <option value="Basah">Basah</option>
+                <option value="Kering">Kering</option>
+              </select>
+            </div>
+
+             <div class="hidden sm:block"></div>
+
+            <div class="sm:col-span-2">
+              <label class="block text-sm font-medium text-gray-700 mb-1">Keterangan Tambahan Hasil</label>
+              <textarea 
+                v-model="form.notes" 
+                rows="2" 
+                class="block w-full border-gray-300 rounded-lg p-2.5 border resize-none" 
+                placeholder="Contoh: Hasil basah karena..., dll..."
+              ></textarea>
+            </div>
         </div>
 
         <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse border-t border-gray-200">
@@ -101,9 +121,16 @@ const processingStore = useProcessingStore()
 
 const loading = ref(false)
 const error = ref(null)
-const form = ref({ end_date: '', end_time: '', kwh_end: '', output_amount: '' })
+// UPDATE: Menambahkan field baru ke state form
+const form = ref({ 
+  end_date: '', 
+  end_time: '', 
+  kwh_end: '', 
+  output_amount: '',
+  output_texture: '', // Baru
+  notes: ''           // Baru
+})
 
-// ✅ PERBAIKAN: Support multiple files
 const kwhEndFiles = ref([])
 const outputFiles = ref([])
 
@@ -120,13 +147,14 @@ watch(() => props.show, (newVal) => {
     form.value.end_time = now.toTimeString().slice(0, 5)
     form.value.kwh_end = ''
     form.value.output_amount = ''
+    form.value.output_texture = '' // Reset
+    form.value.notes = ''          // Reset
     kwhEndFiles.value = []
     outputFiles.value = []
     error.value = null
   }
 })
 
-// ✅ PERBAIKAN: Handle multiple images
 const handleImageChange = (type, images) => {
   const files = images.map(img => img.file)
   if (type === 'kwh') {
@@ -134,7 +162,6 @@ const handleImageChange = (type, images) => {
   } else {
     outputFiles.value = files
   }
-  console.log(`📸 ${type} images:`, files.length)
 }
 
 const formatDate = (dateString) => new Date(dateString).toLocaleString('id-ID')
@@ -143,9 +170,16 @@ const closeModal = () => emit('close')
 const handleSubmit = async () => {
   error.value = null
   
+  // Validasi Input
   if (!form.value.kwh_end || !form.value.output_amount) {
-    return error.value = 'Data wajib diisi.'
+    return error.value = 'Data KWh dan Hasil Output wajib diisi.'
   }
+  
+  // Validasi Tekstur
+  if (!form.value.output_texture) {
+    return error.value = 'Harap pilih Tekstur Hasil (Basah/Kering).'
+  }
+
   if (kwhEndFiles.value.length === 0 || outputFiles.value.length === 0) {
     return error.value = 'Upload minimal 1 foto untuk setiap kategori.'
   }
@@ -190,16 +224,13 @@ const handleSubmit = async () => {
       throw new Error('Gagal upload gambar')
     }
 
-    console.log('✅ Uploaded images:', {
-      kwh: kwhEndImagesArray.length,
-      output: outputImagesArray.length
-    })
-
-    // ✅ FIX: Format tanpa 'T' separator
+    // UPDATE: Menambahkan field baru ke payload
     const completionData = {
       end_datetime: `${form.value.end_date} ${form.value.end_time}:00`,
       kwh_end: parseFloat(form.value.kwh_end),
       output_amount_kg: parseFloat(form.value.output_amount),
+      output_texture: form.value.output_texture, // Field Baru
+      notes: form.value.notes || '-',            // Field Baru (default strip jika kosong)
       kwh_end_images: kwhEndImagesArray,
       output_images: outputImagesArray
     }

@@ -16,7 +16,6 @@ export const useProcessingStore = defineStore('processing', {
   }),
 
   getters: {
-    // Get process status with more states
     getProcessStatus: (state) => (processId) => {
       const process = state.processes.find(p => p.id === processId)
       if (!process) return 'unknown'
@@ -35,14 +34,10 @@ export const useProcessingStore = defineStore('processing', {
         this.lastFetch = null
       }
       
-      if (this.loading && !force) {
-        console.log('⚠️ Already fetching, skipping...')
-        return { success: true, data: this.processes }
-      }
+      if (this.loading && !force) return { success: true, data: this.processes }
 
       const now = Date.now()
       if (!force && this.lastFetch && (now - this.lastFetch) < 5000) {
-        console.log('⚡ Using cached data')
         return { success: true, data: this.processes }
       }
 
@@ -63,10 +58,7 @@ export const useProcessingStore = defineStore('processing', {
 
         if (error) throw error
 
-        console.log('✅ Fetched processes:', data?.length || 0)
-
         this.processes = (data || []).map((item) => {
-          // Determine status based on data completeness
           let status = 'created'
           if (item.end_datetime) {
             status = 'completed'
@@ -94,7 +86,9 @@ export const useProcessingStore = defineStore('processing', {
             bucket_name: item.bucket_name,
             materials: [],
             status: status,
-            notes: '-'
+            // --- PERBAIKAN: Mapping data tekstur dan notes ---
+            output_texture: item.output_texture, 
+            notes: item.notes || '-'
           }
         })
         
@@ -113,18 +107,10 @@ export const useProcessingStore = defineStore('processing', {
 
     parseImages(imagesData, baseUrl) {
       if (!imagesData) return []
-      
       try {
         let parsed = imagesData
-        
-        if (typeof imagesData === 'string') {
-          parsed = JSON.parse(imagesData)
-        }
-        
-        if (!Array.isArray(parsed)) {
-          console.warn('⚠️ Images data is not an array:', typeof parsed)
-          return []
-        }
+        if (typeof imagesData === 'string') parsed = JSON.parse(imagesData)
+        if (!Array.isArray(parsed)) return []
 
         return parsed.map(img => ({
           url: img.url || `${baseUrl}/storage/v1/object/public/${img.bucket}/${img.path}`,
@@ -132,114 +118,64 @@ export const useProcessingStore = defineStore('processing', {
           bucket: img.bucket
         }))
       } catch (err) {
-        console.error('❌ Parse images error:', err)
         return []
       }
     },
 
-    // ✅ NEW: Create process (step 1 - hanya nama dan tanggal)
     async createProcess(processData) {
-  this.loading = true
-  
-  try {
-    const supabase = useSupabaseClient()
-    const userId = processData.created_by
-    
-    console.log('🆕 Creating process with user:', userId)
-    
-    if (!userId) {
-      throw new Error('User ID not found')
-    }
-
-    const payload = {
-      created_by: userId,
-      process_name: processData.process_name,
-      created_at: processData.created_at, // Sudah dalam format 'YYYY-MM-DD HH:mm:ss' dari modal
-    }
-    
-    console.log('📦 Payload:', JSON.stringify(payload, null, 2))
-    
-    const { data, error } = await supabase
-      .from('SB_Processing')
-      .insert([payload])
-      .select()
-      .single()
-      
-    if (error) {
-      console.error('❌ Insert error:', error)
-      throw error
-    }
-    
-    console.log('✅ Process created:', data)
-    
-    await this.fetchProcesses(true)
-    return { success: true, data }
-    
-  } finally {
-    this.loading = false
-  }
-},
-    // ✅ NEW: Add KWh Start (step 2 - input kwh awal + foto + set start_datetime)
-    async addKwhStart(processingId, kwhData) {
-  this.loading = true
-  
-  try {
-    const supabase = useSupabaseClient()
-    
-    console.log('⚡ Adding KWh start for process:', processingId)
-    
-    let kwhStartImages = []
-    
-    if (kwhData.imageFile) {
-      console.log('📤 Uploading image:', kwhData.imageFile.name)
-      
-      const uploadRes = await this.uploadImage(
-        kwhData.imageFile, 
-        'kwh-start-images', 
-        processingId
-      )
-      
-      if (uploadRes.success) {
-        kwhStartImages = [{
-          url: uploadRes.url,
-          path: uploadRes.path,
-          bucket: uploadRes.bucket
-        }]
-      } else {
-        throw new Error('Failed to upload image: ' + uploadRes.error)
+      this.loading = true
+      try {
+        const supabase = useSupabaseClient()
+        const userId = processData.created_by
+        
+        const payload = {
+          created_by: userId,
+          process_name: processData.process_name,
+          created_at: processData.created_at,
+        }
+        
+        const { data, error } = await supabase.from('SB_Processing').insert([payload]).select().single()
+        if (error) throw error
+        
+        await this.fetchProcesses(true)
+        return { success: true, data }
+      } finally {
+        this.loading = false
       }
-    }
+    },
 
-    const updatePayload = {
-      start_datetime: kwhData.start_datetime, // Sudah format 'YYYY-MM-DD HH:mm:ss'
-      kwh_start: parseFloat(kwhData.kwh_start) || 0,
-      kwh_start_images: kwhStartImages
-    }
-    
-    console.log('💾 Update payload:', JSON.stringify(updatePayload, null, 2))
-    
-    const { error } = await supabase
-      .from('SB_Processing')
-      .update(updatePayload)
-      .eq('processing_id', processingId)
-      
-    if (error) {
-      console.error('❌ Update error:', error)
-      throw error
-    }
-    
-    console.log('✅ KWh start added')
-    
-    await this.fetchProcesses(true)
-    return { success: true }
-    
-  } catch (err) {
-    console.error('❌ Add KWh start error:', err)
-    return { success: false, error: err.message }
-  } finally {
-    this.loading = false
-  }
-},
+    async addKwhStart(processingId, kwhData) {
+      this.loading = true
+      try {
+        const supabase = useSupabaseClient()
+        let kwhStartImages = []
+        
+        if (kwhData.imageFile) {
+          const uploadRes = await this.uploadImage(kwhData.imageFile, 'kwh-start-images', processingId)
+          if (uploadRes.success) {
+            kwhStartImages = [{ url: uploadRes.url, path: uploadRes.path, bucket: uploadRes.bucket }]
+          } else {
+            throw new Error('Failed to upload image')
+          }
+        }
+
+        const updatePayload = {
+          start_datetime: kwhData.start_datetime,
+          kwh_start: parseFloat(kwhData.kwh_start) || 0,
+          kwh_start_images: kwhStartImages
+        }
+        
+        const { error } = await supabase.from('SB_Processing').update(updatePayload).eq('processing_id', processingId)
+        if (error) throw error
+        
+        await this.fetchProcesses(true)
+        return { success: true }
+      } catch (err) {
+        return { success: false, error: err.message }
+      } finally {
+        this.loading = false
+      }
+    },
 
     async uploadImage(file, bucketName, folderName) {
       try {
@@ -247,44 +183,16 @@ export const useProcessingStore = defineStore('processing', {
         const config = useRuntimeConfig()
         const baseUrl = config.public.supabaseUrl
         
-        console.log('📤 Upload starting...')
-        console.log('  - File:', file.name, '(' + (file.size / 1024).toFixed(2) + ' KB)')
-        console.log('  - Bucket:', bucketName)
-        console.log('  - Folder:', folderName)
-        
         const fileExt = file.name.split('.').pop()
         const randomName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`
         const filePath = folderName ? `${folderName}/${randomName}` : randomName
 
-        console.log('  - Path:', filePath)
-
-        const { data, error } = await supabase.storage
-          .from(bucketName)
-          .upload(filePath, file, { 
-            upsert: false,
-            contentType: file.type
-          })
-          
-        if (error) {
-          console.error('❌ Upload error:', error)
-          throw error
-        }
-
-        console.log('  - Upload data:', data)
+        const { data, error } = await supabase.storage.from(bucketName).upload(filePath, file, { upsert: false, contentType: file.type })
+        if (error) throw error
 
         const publicUrl = `${baseUrl}/storage/v1/object/public/${bucketName}/${filePath}`
-
-        console.log('✅ Upload success!')
-        console.log('  - URL:', publicUrl)
-
-        return { 
-          success: true, 
-          path: filePath, 
-          bucket: bucketName,
-          url: publicUrl
-        }
+        return { success: true, path: filePath, bucket: bucketName, url: publicUrl }
       } catch (err) { 
-        console.error('❌ Upload error:', err)
         return { success: false, error: err.message } 
       }
     },
@@ -295,14 +203,16 @@ export const useProcessingStore = defineStore('processing', {
         const supabase = useSupabaseClient()
         
         console.log('✅ Completing process:', id)
-        console.log('📦 Data:', data)
         
+        // --- PERBAIKAN: Menambahkan output_texture & notes ke payload ---
         const updatePayload = {
           end_datetime: data.end_datetime,
           output_amount_kg: data.output_amount_kg,
           kwh_end: data.kwh_end,
           kwh_end_images: data.kwh_end_images || [],
-          output_images: data.output_images || []
+          output_images: data.output_images || [],
+          output_texture: data.output_texture, // Kirim Tekstur
+          notes: data.notes                    // Kirim Notes
         }
 
         console.log('💾 Update payload:', JSON.stringify(updatePayload, null, 2))
@@ -312,10 +222,7 @@ export const useProcessingStore = defineStore('processing', {
           .update(updatePayload)
           .eq('processing_id', id)
           
-        if (error) {
-          console.error('❌ Update error:', error)
-          throw error
-        }
+        if (error) throw error
         
         console.log('✅ Process completed successfully')
         
@@ -332,22 +239,9 @@ export const useProcessingStore = defineStore('processing', {
     async fetchMaterialsForProcess(processingId) {
       try {
         const supabase = useSupabaseClient()
-        
-        console.log('🔍 Fetching materials for process:', processingId)
-        
         const { data, error } = await supabase
           .from('SB_Material_Used')
-          .select(`
-            used_id,
-            material_id,
-            container_number,
-            container_content,
-            qty,
-            material_images,
-            SB_Material (
-              material_name
-            )
-          `)
+          .select(`used_id, material_id, container_number, container_content, qty, material_images, SB_Material (material_name)`)
           .eq('processing_id', processingId)
           .order('container_number', { ascending: true })
         
@@ -367,10 +261,8 @@ export const useProcessingStore = defineStore('processing', {
         if (processIndex !== -1) {
           this.processes[processIndex].materials = materials
         }
-
         return materials
       } catch (err) {
-        console.error('❌ Fetch materials error:', err)
         return []
       }
     },
@@ -379,12 +271,7 @@ export const useProcessingStore = defineStore('processing', {
       this.loading = true
       try {
         const supabase = useSupabaseClient()
-
-        const { error: deleteError } = await supabase
-          .from('SB_Material_Used')
-          .delete()
-          .eq('processing_id', processingId)
-        
+        const { error: deleteError } = await supabase.from('SB_Material_Used').delete().eq('processing_id', processingId)
         if (deleteError) throw deleteError
 
         if (materials.length > 0) {
@@ -395,29 +282,17 @@ export const useProcessingStore = defineStore('processing', {
             container_content: m.container_content || '',
             qty: parseFloat(m.qty)
           }))
-
-          const { error: insertError } = await supabase
-            .from('SB_Material_Used')
-            .insert(payload)
-          
+          const { error: insertError } = await supabase.from('SB_Material_Used').insert(payload)
           if (insertError) throw insertError
         }
 
-        const totalInput = materials.reduce((sum, m) => 
-          sum + (parseFloat(m.qty) || 0), 0
-        )
-
-        const { error: updateError } = await supabase
-          .from('SB_Processing')
-          .update({ input_amount_kg: totalInput })
-          .eq('processing_id', processingId)
-
+        const totalInput = materials.reduce((sum, m) => sum + (parseFloat(m.qty) || 0), 0)
+        const { error: updateError } = await supabase.from('SB_Processing').update({ input_amount_kg: totalInput }).eq('processing_id', processingId)
         if (updateError) throw updateError
 
         await this.fetchProcesses(true)
         return { success: true }
       } catch (err) {
-        console.error('❌ Save materials error:', err)
         return { success: false, error: err.message }
       } finally {
         this.loading = false
@@ -427,38 +302,23 @@ export const useProcessingStore = defineStore('processing', {
     async updateProcessInputAmount(processingId, inputAmount) {
       try {
         const processIndex = this.processes.findIndex(p => p.id === processingId)
-        
         if (processIndex !== -1) {
-          console.log(`🔄 Updating process ${processingId} input amount: ${this.processes[processIndex].input_amount} → ${inputAmount}`)
-          
           this.processes[processIndex].input_amount = inputAmount
-          
-          console.log('✅ Process updated in store')
-          
           this.calculateStatistics()
-          
           return true
         } else {
-          console.warn('⚠️ Process not found in store, will fetch all')
           await this.fetchProcesses(true)
           return true
         }
-      } catch (err) {
-        console.error('❌ Update process error:', err)
-        return false
-      }
+      } catch (err) { return false }
     },
 
     calculateStatistics() {
       this.statistics = {
         totalProcesses: this.processes.length,
-        activeProcesses: this.processes.filter(p => 
-          p.status === 'in_progress' || p.status === 'created'
-        ).length,
+        activeProcesses: this.processes.filter(p => p.status === 'in_progress' || p.status === 'created').length,
         totalCompleted: this.processes.filter(p => p.status === 'completed').length,
-        totalOutput: this.processes
-          .filter(p => p.status === 'completed')
-          .reduce((sum, p) => sum + (parseFloat(p.output_amount) || 0), 0)
+        totalOutput: this.processes.filter(p => p.status === 'completed').reduce((sum, p) => sum + (parseFloat(p.output_amount) || 0), 0)
       }
     }
   }
