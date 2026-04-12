@@ -28,9 +28,7 @@
     <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label class="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-            Dari Bulan:
-          </label>
+          <label class="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">Dari Bulan:</label>
           <select
             v-model="startMonth"
             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -40,11 +38,8 @@
             </option>
           </select>
         </div>
-
         <div>
-          <label class="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-            Sampai Bulan:
-          </label>
+          <label class="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">Sampai Bulan:</label>
           <select
             v-model="endMonth"
             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -96,84 +91,54 @@
         <table class="min-w-full divide-y divide-gray-300">
           <thead class="bg-gray-100">
             <tr>
-              <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase border border-gray-300">
-                No.
-              </th>
-              <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase border border-gray-300">
-                Tanggal
-              </th>
-              <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase border border-gray-300">
-                Hasil (kg)
-              </th>
-              <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase border border-gray-300">
-                Total Jam
-              </th>
-              <th class="px-4 py-3 text-center text-xs font-bold text-yellow-700 uppercase border border-gray-300 bg-yellow-50">
-                Listrik Dipakai
-              </th>
-              <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase border border-gray-300">
-                Rupiah Listrik
-              </th>
-              <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase border border-gray-300 bg-green-50">
-                Rupiah Listrik/Kg
-              </th>
-              <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase border border-gray-300 bg-blue-50">
-                Bulan
-              </th>
+              <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase border border-gray-300">No.</th>
+              <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase border border-gray-300">Tanggal</th>
+              <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase border border-gray-300">Hasil (kg)</th>
+              <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase border border-gray-300">Total Jam</th>
+              <th class="px-4 py-3 text-center text-xs font-bold text-yellow-700 uppercase border border-gray-300 bg-yellow-50">Listrik Dipakai</th>
+              <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase border border-gray-300">Rupiah Listrik</th>
+              <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase border border-gray-300 bg-green-50">Rupiah Listrik/Kg</th>
+              <!-- NEW: Jenis column -->
+              <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase border border-gray-300 bg-purple-50">Jenis</th>
+              <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase border border-gray-300 bg-blue-50">Bulan</th>
             </tr>
           </thead>
           <tbody class="bg-white">
             <template v-for="(monthGroup, monthIndex) in groupedData" :key="monthGroup.month">
-              <!-- Month rows -->
-              <tr v-for="(item, itemIndex) in monthGroup.items" :key="item.dateRange" class="hover:bg-gray-50">
+              <tr v-for="(item, itemIndex) in monthGroup.items" :key="item.dateRange + item.jenis" class="hover:bg-gray-50">
+                <td class="px-4 py-3 text-center border border-gray-300">{{ item.rowNumber }}.</td>
+                <td class="px-4 py-3 text-center border border-gray-300 font-medium">{{ item.dateRange }}</td>
+                <td class="px-4 py-3 text-center border border-gray-300 font-semibold">{{ item.totalOutput.toFixed(2) }}</td>
+                <td class="px-4 py-3 text-center border border-gray-300">{{ item.totalHours }}</td>
+                <td class="px-4 py-3 text-center border border-gray-300 font-bold text-yellow-700 bg-yellow-50">{{ item.totalKwh.toFixed(2) }}</td>
+                <td class="px-4 py-3 text-center border border-gray-300 font-semibold">{{ formatCurrency(item.electricityCost) }}</td>
+                <td class="px-4 py-3 text-center border border-gray-300 font-semibold text-green-700 bg-green-50">{{ formatCurrency(item.costPerKg) }}</td>
+                <!-- Jenis badge -->
                 <td class="px-4 py-3 text-center border border-gray-300">
-                  {{ item.rowNumber }}.
-                </td>
-                <td class="px-4 py-3 text-center border border-gray-300 font-medium">
-                  {{ item.dateRange }}
-                </td>
-                <td class="px-4 py-3 text-center border border-gray-300 font-semibold">
-                  {{ item.totalOutput.toFixed(2) }}
-                </td>
-                <td class="px-4 py-3 text-center border border-gray-300">
-                  {{ item.totalHours }}
-                </td>
-                <td class="px-4 py-3 text-center border border-gray-300 font-bold text-yellow-700 bg-yellow-50">
-                  {{ item.totalKwh.toFixed(2) }}
-                </td>
-                <td class="px-4 py-3 text-center border border-gray-300 font-semibold">
-                  {{ formatCurrency(item.electricityCost) }}
-                </td>
-                <td class="px-4 py-3 text-center border border-gray-300 font-semibold text-green-700 bg-green-50">
-                  {{ formatCurrency(item.costPerKg) }}
+                  <span
+                    :class="item.jenis === 'Dewatering'
+                      ? 'bg-cyan-100 text-cyan-800 border border-cyan-300'
+                      : 'bg-gray-100 text-gray-800 border border-gray-300'"
+                    class="inline-block px-2 py-0.5 rounded text-xs font-semibold"
+                  >
+                    {{ item.jenis }}
+                  </span>
                 </td>
                 <td v-if="itemIndex === 0" :rowspan="monthGroup.items.length" class="px-4 py-3 text-center border border-gray-300 font-bold text-blue-700 bg-blue-50 align-middle">
                   {{ monthGroup.monthName }}
                 </td>
               </tr>
-              
             </template>
           </tbody>
           <tfoot class="bg-yellow-100">
             <tr>
-              <td colspan="2" class="px-4 py-3 text-center font-bold border border-gray-300">
-                TOTAL
-              </td>
-              <td class="px-4 py-3 text-center font-bold border border-gray-300">
-                {{ grandTotal.totalOutput.toFixed(2) }}
-              </td>
-              <td class="px-4 py-3 text-center font-bold border border-gray-300">
-                {{ grandTotal.totalHours }}
-              </td>
-              <td class="px-4 py-3 text-center font-bold text-yellow-700 bg-yellow-100 border border-gray-300">
-                {{ grandTotal.totalKwh.toFixed(2) }}
-              </td>
-              <td class="px-4 py-3 text-center font-bold border border-gray-300">
-                {{ formatCurrency(grandTotal.electricityCost) }}
-              </td>
-              <td class="px-4 py-3 text-center font-bold text-green-700 bg-green-100 border border-gray-300">
-                {{ formatCurrency(grandTotal.avgCostPerKg) }}
-              </td>
+              <td colspan="2" class="px-4 py-3 text-center font-bold border border-gray-300">TOTAL</td>
+              <td class="px-4 py-3 text-center font-bold border border-gray-300">{{ grandTotal.totalOutput.toFixed(2) }}</td>
+              <td class="px-4 py-3 text-center font-bold border border-gray-300">{{ grandTotal.totalHours }}</td>
+              <td class="px-4 py-3 text-center font-bold text-yellow-700 bg-yellow-100 border border-gray-300">{{ grandTotal.totalKwh.toFixed(2) }}</td>
+              <td class="px-4 py-3 text-center font-bold border border-gray-300">{{ formatCurrency(grandTotal.electricityCost) }}</td>
+              <td class="px-4 py-3 text-center font-bold text-green-700 bg-green-100 border border-gray-300">{{ formatCurrency(grandTotal.avgCostPerKg) }}</td>
+              <td class="px-4 py-3 border border-gray-300"></td>
               <td class="px-4 py-3 border border-gray-300"></td>
             </tr>
           </tfoot>
@@ -196,7 +161,8 @@ definePageMeta({
 
 const supabase = useSupabaseClient()
 const loading = ref(true)
-const allProcesses = ref([])
+const allProcesses = ref([])   
+const allDewaterings = ref([]) 
 const startMonth = ref('')
 const endMonth = ref('')
 const kwhPrice = ref(1700)
@@ -204,16 +170,26 @@ const kwhPrice = ref(1700)
 const fetchProcesses = async () => {
   loading.value = true
   try {
-    const { data, error } = await supabase
-      .from('SB_Processing')
-      .select('start_datetime, end_datetime, kwh_start, kwh_end, output_amount_kg')
-      .not('end_datetime', 'is', null)
-      .order('start_datetime', { ascending: true })
+    const [processingResult, dewateringResult] = await Promise.all([
+      supabase
+        .from('SB_Processing')
+        .select('start_datetime, end_datetime, kwh_start, kwh_end, output_amount_kg')
+        .not('end_datetime', 'is', null)
+        .order('start_datetime', { ascending: true }),
 
-    if (error) throw error
+      supabase
+        .from('SB_Dewatering')
+        .select('start_datetime, end_datetime, kwh_start, kwh_end, output_amount_kg')
+        .not('end_datetime', 'is', null)
+        .order('start_datetime', { ascending: true })
+    ])
 
-    allProcesses.value = data || []
-    
+    if (processingResult.error) throw processingResult.error
+    if (dewateringResult.error) throw dewateringResult.error
+
+    allProcesses.value = processingResult.data || []
+    allDewaterings.value = dewateringResult.data || []
+
     if (availableMonths.value.length > 0) {
       startMonth.value = availableMonths.value[0]
       endMonth.value = availableMonths.value[availableMonths.value.length - 1]
@@ -226,81 +202,77 @@ const fetchProcesses = async () => {
 }
 
 const availableMonths = computed(() => {
-  const months = new Set(
-    allProcesses.value.map(p => p.start_datetime.substring(0, 7))
-  )
+  const months = new Set([
+    ...allProcesses.value.map(p => p.start_datetime.substring(0, 7)),
+    ...allDewaterings.value.map(d => d.start_datetime.substring(0, 7))
+  ])
   return [...months].sort()
 })
 
 const filteredSummary = computed(() => {
   if (!startMonth.value || !endMonth.value) return []
-  
-  const processes = allProcesses.value.filter(p => {
-    const pMonth = p.start_datetime.substring(0, 7)
-    return pMonth >= startMonth.value && pMonth <= endMonth.value
-  })
 
-  const grouped = {}
-  
-  processes.forEach(p => {
-    const startDate = p.start_datetime.split(' ')[0]
-    const endDate = p.end_datetime.split(' ')[0]
-    const dateRange = `${formatDateShort(startDate)} - ${formatDateShort(endDate)}`
-    
-    if (!grouped[dateRange]) {
-      grouped[dateRange] = {
-        dateRange,
-        month: p.start_datetime.substring(0, 7),
-        processes: [],
-        totalOutput: 0,
-        totalKwh: 0,
-        totalHours: 0
+  const buildItems = (records, jenis) => {
+    const filtered = records.filter(p => {
+      const pMonth = p.start_datetime.substring(0, 7)
+      return pMonth >= startMonth.value && pMonth <= endMonth.value
+    })
+
+    const grouped = {}
+    filtered.forEach(p => {
+      const startDate = p.start_datetime.split(' ')[0]
+      const endDate = p.end_datetime.split(' ')[0]
+      const key = `${jenis}::${formatDateShort(startDate)} - ${formatDateShort(endDate)}`
+
+      if (!grouped[key]) {
+        grouped[key] = {
+          dateRange: `${formatDateShort(startDate)} - ${formatDateShort(endDate)}`,
+          month: p.start_datetime.substring(0, 7),
+          jenis,
+          processes: [],
+          totalOutput: 0,
+          totalKwh: 0,
+          totalHours: 0
+        }
       }
-    }
-    
-    const kwh = (p.kwh_end || 0) - (p.kwh_start || 0)
-    const hours = calculateHours(p.start_datetime, p.end_datetime)
-    
-    grouped[dateRange].processes.push(p)
-    grouped[dateRange].totalOutput += p.output_amount_kg || 0
-    grouped[dateRange].totalKwh += kwh
-    grouped[dateRange].totalHours += hours
-  })
-  
-  return Object.values(grouped).map(item => {
-    const electricityCost = item.totalKwh * kwhPrice.value
-    const costPerKg = item.totalOutput > 0 ? electricityCost / item.totalOutput : 0
-    
-    return {
-      ...item,
-      electricityCost,
-      costPerKg
-    }
+
+      const kwh = (p.kwh_end || 0) - (p.kwh_start || 0)
+      const hours = calculateHours(p.start_datetime, p.end_datetime)
+
+      grouped[key].processes.push(p)
+      grouped[key].totalOutput += p.output_amount_kg || 0
+      grouped[key].totalKwh += kwh
+      grouped[key].totalHours += hours
+    })
+
+    return Object.values(grouped).map(item => {
+      const electricityCost = item.totalKwh * kwhPrice.value
+      const costPerKg = item.totalOutput > 0 ? electricityCost / item.totalOutput : 0
+      return { ...item, electricityCost, costPerKg }
+    })
+  }
+
+  const processingItems = buildItems(allProcesses.value, 'Pengolahan')
+  const dewateringItems = buildItems(allDewaterings.value, 'Dewatering')
+
+  return [...processingItems, ...dewateringItems].sort((a, b) => {
+    if (a.month !== b.month) return a.month.localeCompare(b.month)
+    return a.dateRange.localeCompare(b.dateRange)
   })
 })
 
-// Group data by month
 const groupedData = computed(() => {
   const grouped = {}
   let rowNumber = 1
-  
+
   filteredSummary.value.forEach(item => {
     const month = item.month
-    
     if (!grouped[month]) {
-      grouped[month] = {
-        month,
-        monthName: formatMonthName(month),
-        items: []
-      }
+      grouped[month] = { month, monthName: formatMonthName(month), items: [] }
     }
-    
-    grouped[month].items.push({
-      ...item,
-      rowNumber: rowNumber++
-    })
+    grouped[month].items.push({ ...item, rowNumber: rowNumber++ })
   })
-  
+
   return Object.values(grouped)
 })
 
@@ -311,13 +283,9 @@ const grandTotal = computed(() => {
     totalHours: acc.totalHours + item.totalHours,
     electricityCost: acc.electricityCost + item.electricityCost
   }), { totalOutput: 0, totalKwh: 0, totalHours: 0, electricityCost: 0 })
-  
+
   const avgCostPerKg = total.totalOutput > 0 ? total.electricityCost / total.totalOutput : 0
-  
-  return {
-    ...total,
-    avgCostPerKg
-  }
+  return { ...total, avgCostPerKg }
 })
 
 const calculateHours = (start, end) => {
@@ -329,19 +297,12 @@ const calculateHours = (start, end) => {
 
 const formatDateShort = (dateStr) => {
   const date = new Date(dateStr)
-  return date.toLocaleDateString('id-ID', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  })
+  return date.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 const formatMonthName = (monthStr) => {
   const [year, month] = monthStr.split('-')
-  return new Date(year, month - 1).toLocaleDateString('id-ID', {
-    month: 'long',
-    year: 'numeric'
-  })
+  return new Date(year, month - 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
 }
 
 const formatCurrency = (value) => {
@@ -351,37 +312,31 @@ const formatCurrency = (value) => {
   }).format(value)
 }
 
-// Export PDF
+// Export PDF yang Sudah Diperbaiki
 const exportPDF = async () => {
   try {
     const { default: jsPDF } = await import('jspdf')
-    
-    const doc = new jsPDF({
-      orientation: 'landscape',
-      unit: 'mm',
-      format: 'a4'
-    })
-    
+
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
     const pageWidth = doc.internal.pageSize.width
     const pageHeight = doc.internal.pageSize.height
     const margin = 10
-    
+    const bottomLimit = pageHeight - 20
+
     // Title
     doc.setFontSize(16)
     doc.setFont(undefined, 'bold')
     doc.text('Pemakaian Listrik', margin, 15)
-    
+
     doc.setFontSize(10)
     doc.setFont(undefined, 'normal')
     doc.text(`Periode: ${formatMonthName(startMonth.value)} s/d ${formatMonthName(endMonth.value)}`, margin, 22)
     doc.text(`Harga Listrik: Rp ${kwhPrice.value}/kWh`, margin, 28)
-    
-    // Table
+
     let startY = 35
     const headerHeight = 8
     const rowHeight = 7
-    
-    // Column widths
+
     const colNo = 10
     const colDate = 45
     const colHasil = 25
@@ -389,54 +344,58 @@ const exportPDF = async () => {
     const colKwh = 25
     const colRupiah = 30
     const colPerKg = 35
+    const colJenis = 25
     const colBulan = 30
-    
-    const colWidths = [colNo, colDate, colHasil, colJam, colKwh, colRupiah, colPerKg, colBulan]
-    
-    // Draw Header
-    doc.setDrawColor(0, 0, 0)
-    doc.setLineWidth(0.3)
-    doc.setFillColor(220, 220, 220)
-    doc.setFontSize(8)
-    doc.setFont(undefined, 'bold')
-    doc.setTextColor(0, 0, 0)
-    
-    let x = margin
-    const headers = ['No.', 'Tanggal', 'Hasil (kg)', 'Total Jam', 'Listrik Dipakai', 'Rupiah Listrik', 'Rupiah Listrik/Kg', 'Bulan']
-    
-    headers.forEach((header, i) => {
-      doc.setFillColor(220, 220, 220)
-      if (i === 4) doc.setFillColor(255, 255, 200)
-      if (i === 6) doc.setFillColor(220, 252, 231)
-      if (i === 7) doc.setFillColor(219, 234, 254)
+
+    const colWidths = [colNo, colDate, colHasil, colJam, colKwh, colRupiah, colPerKg, colJenis, colBulan]
+    const headers = ['No.', 'Tanggal', 'Hasil (kg)', 'Total Jam', 'Listrik Dipakai', 'Rupiah Listrik', 'Rupiah Listrik/Kg', 'Jenis', 'Bulan']
+
+    // Fungsi Render Header Tabel
+    const drawTableHeader = () => {
+      doc.setDrawColor(180, 180, 180)
+      doc.setLineWidth(0.3)
+      doc.setFontSize(8)
+      doc.setFont(undefined, 'bold')
       
-      doc.rect(x, startY, colWidths[i], headerHeight, 'FD')
-      doc.text(header, x + colWidths[i] / 2, startY + 5.5, { align: 'center' })
-      x += colWidths[i]
-    })
-    
-    startY += headerHeight
-    
-    // Draw Body Rows (grouped by month)
+      let tempX = margin
+      headers.forEach((header, i) => {
+        doc.setFillColor(220, 220, 220)
+        if (i === 4) doc.setFillColor(255, 255, 200)
+        if (i === 6) doc.setFillColor(220, 252, 231)
+        if (i === 7) doc.setFillColor(243, 232, 255)
+        if (i === 8) doc.setFillColor(219, 234, 254)
+
+        doc.rect(tempX, startY, colWidths[i], headerHeight, 'FD')
+        doc.setTextColor(0, 0, 0)
+        doc.text(header, tempX + colWidths[i] / 2, startY + 5.5, { align: 'center' })
+        tempX += colWidths[i]
+      })
+      startY += headerHeight
+    }
+
+    drawTableHeader()
+
     doc.setFont(undefined, 'normal')
     doc.setFontSize(8)
-    
-    let currentMonth = ''
-    let monthStartY = 0
-    let monthRowCount = 0
-    
-    groupedData.value.forEach((monthGroup, monthIndex) => {
-      monthStartY = startY
-      monthRowCount = monthGroup.items.length
-      
+    doc.setDrawColor(180, 180, 180) // Set warna border untuk seluruh cell tabel
+
+    groupedData.value.forEach((monthGroup) => {
+      let rowsRemaining = monthGroup.items.length
+
       monthGroup.items.forEach((item, itemIndex) => {
-        if (startY > pageHeight - 25) {
+        let isFirstRowOfPageOrGroup = false
+
+        // Deteksi Page Break
+        if (startY + rowHeight > bottomLimit) {
           doc.addPage()
           startY = 20
-          monthStartY = startY
+          isFirstRowOfPageOrGroup = true
+          drawTableHeader() // Gambar ulang header di halaman baru
         }
-        
-        x = margin
+
+        if (itemIndex === 0) isFirstRowOfPageOrGroup = true
+
+        let x = margin
         const rowData = [
           item.rowNumber + '.',
           item.dateRange,
@@ -445,117 +404,118 @@ const exportPDF = async () => {
           item.totalKwh.toFixed(2),
           formatCurrency(item.electricityCost),
           formatCurrency(item.costPerKg),
-          '' // Bulan - will be drawn with rowspan
+          item.jenis,
+          '' // Placeholder Bulan
         ]
-        
-        // Draw backgrounds (except month column)
+
+        // Gambar background dan border (Kecuali kolom Bulan)
         for (let i = 0; i < rowData.length - 1; i++) {
           doc.setFillColor(255, 255, 255)
-          
           if (i === 4) doc.setFillColor(255, 255, 230)
           if (i === 6) doc.setFillColor(240, 253, 244)
-          
+          if (i === 7) {
+            if (item.jenis === 'Dewatering') doc.setFillColor(207, 250, 254)
+            else doc.setFillColor(243, 244, 246)
+          }
           doc.rect(x, startY, colWidths[i], rowHeight, 'FD')
           x += colWidths[i]
         }
-        
-        // Draw month column with rowspan (only on first row)
-        if (itemIndex === 0) {
+
+        // Gambar kolom Bulan HANYA jika ini awal grup ATAU halaman baru
+        if (isFirstRowOfPageOrGroup) {
+          // Hitung berapa baris yang masih muat di halaman ini
+          let availableRowsSpace = Math.floor((bottomLimit - startY) / rowHeight)
+          let rowsForThisBlock = Math.min(rowsRemaining, availableRowsSpace)
+          if (rowsForThisBlock < 1) rowsForThisBlock = 1 // Failsafe
+
           doc.setFillColor(219, 234, 254)
-          doc.rect(x, startY, colBulan, rowHeight * monthRowCount, 'FD')
+          // Menggambar persegi rowspan yang memotong tepat di batas halaman
+          doc.rect(x, startY, colBulan, rowHeight * rowsForThisBlock, 'FD')
           
-          // Draw month text centered vertically
           doc.setTextColor(30, 64, 175)
           doc.setFont(undefined, 'bold')
           doc.setFontSize(9)
-          const monthTextY = startY + (rowHeight * monthRowCount / 2) + 2.5
+          
+          // Posisi text Bulan secara dinamis berdasarkan tinggi blok yang terpotong
+          const monthTextY = startY + (rowHeight * rowsForThisBlock / 2) + 2.5
           doc.text(monthGroup.monthName, x + colBulan / 2, monthTextY, { align: 'center' })
         }
-        
-        // Draw text for data columns
+
+        // Cetak Teks Data
         x = margin
-        doc.setTextColor(0, 0, 0)
         for (let i = 0; i < rowData.length - 1; i++) {
           if (i === 4) {
-            doc.setTextColor(180, 83, 9)
-            doc.setFont(undefined, 'bold')
+            doc.setTextColor(180, 83, 9); doc.setFont(undefined, 'bold')
           } else if (i === 6) {
-            doc.setTextColor(22, 101, 52)
+            doc.setTextColor(22, 101, 52); doc.setFont(undefined, 'bold')
+          } else if (i === 7) {
+            doc.setTextColor(item.jenis === 'Dewatering' ? 14 : 55, item.jenis === 'Dewatering' ? 116 : 65, item.jenis === 'Dewatering' ? 144 : 81)
             doc.setFont(undefined, 'bold')
           } else {
-            doc.setTextColor(0, 0, 0)
-            doc.setFont(undefined, 'normal')
+            doc.setTextColor(0, 0, 0); doc.setFont(undefined, 'normal')
           }
-          
           doc.setFontSize(8)
           doc.text(rowData[i].toString(), x + colWidths[i] / 2, startY + rowHeight / 2 + 2.5, { align: 'center' })
           x += colWidths[i]
         }
-        
+
         startY += rowHeight
+        rowsRemaining--
       })
     })
-    
+
+    // Proteksi Page Break sebelum Footer
+    if (startY + rowHeight > bottomLimit) {
+      doc.addPage()
+      startY = 20
+    }
+
     // Draw Footer (Total)
     startY += 2
     doc.setFillColor(255, 255, 200)
     doc.setFont(undefined, 'bold')
     doc.setFontSize(9)
     doc.setTextColor(0, 0, 0)
-    
-    x = margin
+
+    let x = margin
     const footerData = [
-      'TOTAL',
-      '',
-      grandTotal.value.totalOutput.toFixed(2),
+      'TOTAL', '', grandTotal.value.totalOutput.toFixed(2),
       grandTotal.value.totalHours.toString(),
       grandTotal.value.totalKwh.toFixed(2),
       formatCurrency(grandTotal.value.electricityCost),
       formatCurrency(grandTotal.value.avgCostPerKg),
-      ''
+      '', ''
     ]
-    
-    // Draw footer backgrounds
+
     footerData.forEach((data, i) => {
       if (i === 0 || i === 1) {
         if (i === 0) {
           doc.setFillColor(255, 255, 200)
           doc.rect(x, startY, colNo + colDate, rowHeight, 'FD')
         }
-      } else if (i === 7) {
-        // Empty month column
-        doc.setFillColor(255, 255, 200)
-        doc.rect(x, startY, colWidths[i], rowHeight, 'FD')
       } else {
         doc.setFillColor(255, 255, 200)
         if (i === 4) doc.setFillColor(255, 255, 150)
         if (i === 6) doc.setFillColor(220, 252, 231)
-        
         doc.rect(x, startY, colWidths[i], rowHeight, 'FD')
       }
       x += colWidths[i]
     })
-    
-    // Draw footer text
+
     x = margin
     footerData.forEach((data, i) => {
       if (i === 0) {
         doc.setTextColor(0, 0, 0)
         doc.text('TOTAL', x + (colNo + colDate) / 2, startY + rowHeight / 2 + 2.5, { align: 'center' })
       } else if (i > 1 && i < 7 && data) {
-        if (i === 4) {
-          doc.setTextColor(180, 83, 9)
-        } else if (i === 6) {
-          doc.setTextColor(22, 101, 52)
-        } else {
-          doc.setTextColor(0, 0, 0)
-        }
-        
+        if (i === 4) doc.setTextColor(180, 83, 9)
+        else if (i === 6) doc.setTextColor(22, 101, 52)
+        else doc.setTextColor(0, 0, 0)
         doc.text(data.toString(), x + colWidths[i] / 2, startY + rowHeight / 2 + 2.5, { align: 'center' })
       }
       x += colWidths[i]
     })
-    
+
     const fileName = `Pemakaian_Listrik_${formatMonthName(startMonth.value).replace(/\s+/g, '_')}_sd_${formatMonthName(endMonth.value).replace(/\s+/g, '_')}.pdf`
     doc.save(fileName)
   } catch (err) {

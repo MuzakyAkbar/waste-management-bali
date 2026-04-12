@@ -1,0 +1,360 @@
+// stores/useDewateringStore.js
+import { defineStore } from 'pinia'
+
+export const useDewateringStore = defineStore('dewatering', {
+  state: () => ({
+    processes: [],
+    loading: false,
+    error: null,
+    statistics: {
+      totalProcesses: 0,
+      activeProcesses: 0,
+      totalCompleted: 0,
+      totalOutput: 0,
+    },
+    lastFetch: null,
+  }),
+
+  getters: {
+    getProcessStatus: (state) => (processId) => {
+      const process = state.processes.find(p => p.id === processId)
+      if (!process) return 'unknown'
+
+      if (process.end_datetime) return 'completed'
+      if (process.start_datetime && process.kwh_start) return 'in_progress'
+      if (process.process_name) return 'created'
+      return 'unknown'
+    }
+  },
+
+  actions: {
+    async fetchProcesses(force = false) {
+      if (force) {
+        console.log('🔄 Force refresh dewatering - clearing cache')
+        this.lastFetch = null
+      }
+
+      if (this.loading && !force) return { success: true, data: this.processes }
+
+      const now = Date.now()
+      if (!force && this.lastFetch && (now - this.lastFetch) < 5000) {
+        return { success: true, data: this.processes }
+      }
+
+      this.loading = true
+      this.error = null
+
+      try {
+        const supabase = useSupabaseClient()
+        const config = useRuntimeConfig()
+        const baseUrl = config.public.supabaseUrl
+
+        console.log('🔥 Fetching dewatering processes...')
+
+        const { data, error } = await supabase
+          .from('SB_Dewatering')
+          .select('*')
+          .order('created_at', { ascending: false })
+
+        if (error) throw error
+
+        this.processes = (data || []).map((item) => {
+          let status = 'created'
+          if (item.end_datetime) {
+            status = 'completed'
+          } else if (item.start_datetime && item.kwh_start) {
+            status = 'in_progress'
+          }
+
+          return {
+            id: item.dewatering_id,
+            process_name: item.process_name || 'Unnamed Process',
+            created_at: item.created_at,
+            activity_date: item.start_datetime,
+            completed_at: item.end_datetime,
+            start_datetime: item.start_datetime,
+            end_datetime: item.end_datetime,
+            input_amount: item.input_amount_kg || 0,
+            output_amount: item.output_amount_kg,
+            kwh_start: item.kwh_start || 0,
+            kwh_end: item.kwh_end,
+            kwh_used: item.kwh_used,
+            kwh_start_images: this.parseImages(item.kwh_start_images, baseUrl),
+            kwh_end_images: this.parseImages(item.kwh_end_images, baseUrl),
+            output_images: this.parseImages(item.output_images, baseUrl),
+            material_input_images: this.parseImages(item.material_input_images, baseUrl),
+            bucket_name: item.bucket_name,
+            materials: [],
+            status: status,
+            output_texture: item.output_texture,
+            notes: item.notes || '-'
+          }
+        })
+
+        this.calculateStatistics()
+        this.lastFetch = Date.now()
+
+        return { success: true, data: this.processes }
+      } catch (err) {
+        console.error('❌ Fetch dewatering error:', err)
+        this.error = err.message
+        return { success: false, error: err.message }
+      } finally {
+        this.loading = false
+      }
+    },
+
+    parseImages(imagesData, baseUrl) {
+      if (!imagesData) return []
+      try {
+        let parsed = imagesData
+        if (typeof imagesData === 'string') parsed = JSON.parse(imagesData)
+        if (!Array.isArray(parsed)) return []
+
+        return parsed.map(img => ({
+          url: img.url || `${baseUrl}/storage/v1/object/public/${img.bucket}/${img.path}`,
+          path: img.path,
+          bucket: img.bucket
+        }))
+      } catch (err) {
+        return []
+      }
+    },
+
+    async createProcess(processData) {
+      this.loading = true
+      try {
+        const supabase = useSupabaseClient()
+        const userId = processData.created_by
+
+        const payload = {
+          created_by: userId,
+          process_name: processData.process_name,
+          created_at: processData.created_at,
+        }
+
+        const { data, error } = await supabase
+          .from('SB_Dewatering')
+          .insert([payload])
+          .select()
+          .single()
+
+        if (error) throw error
+
+        await this.fetchProcesses(true)
+        return { success: true, data }
+      } catch (err) {
+        console.error('❌ Create dewatering error:', err)
+        return { success: false, error: err.message }
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async addKwhStart(dewateringId, kwhData) {
+      this.loading = true
+      try {
+        const supabase = useSupabaseClient()
+        let kwhStartImages = []
+
+        if (kwhData.imageFile) {
+          const uploadRes = await this.uploadImage(kwhData.imageFile, 'dw-kwh-start-images', dewateringId)
+          if (uploadRes.success) {
+            kwhStartImages = [{ url: uploadRes.url, path: uploadRes.path, bucket: uploadRes.bucket }]
+          } else {
+            throw new Error('Failed to upload image')
+          }
+        }
+
+        const updatePayload = {
+          start_datetime: kwhData.start_datetime,
+          kwh_start: parseFloat(kwhData.kwh_start) || 0,
+          kwh_start_images: kwhStartImages
+        }
+
+        const { error } = await supabase
+          .from('SB_Dewatering')
+          .update(updatePayload)
+          .eq('dewatering_id', dewateringId)
+
+        if (error) throw error
+
+        await this.fetchProcesses(true)
+        return { success: true }
+      } catch (err) {
+        console.error('❌ Add KWh start dewatering error:', err)
+        return { success: false, error: err.message }
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async uploadImage(file, bucketName, folderName) {
+      try {
+        const supabase = useSupabaseClient()
+        const config = useRuntimeConfig()
+        const baseUrl = config.public.supabaseUrl
+
+        const fileExt = file.name.split('.').pop()
+        const randomName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`
+        const filePath = folderName ? `${folderName}/${randomName}` : randomName
+
+        const { data, error } = await supabase.storage
+          .from(bucketName)
+          .upload(filePath, file, { upsert: false, contentType: file.type })
+
+        if (error) throw error
+
+        const publicUrl = `${baseUrl}/storage/v1/object/public/${bucketName}/${filePath}`
+        return { success: true, path: filePath, bucket: bucketName, url: publicUrl }
+      } catch (err) {
+        console.error('❌ Upload image dewatering error:', err)
+        return { success: false, error: err.message }
+      }
+    },
+
+    async completeProcess(id, data) {
+      this.loading = true
+      try {
+        const supabase = useSupabaseClient()
+
+        console.log('✅ Completing dewatering process:', id)
+
+        const updatePayload = {
+          end_datetime: data.end_datetime,
+          output_amount_kg: data.output_amount_kg,
+          kwh_end: data.kwh_end,
+          kwh_end_images: data.kwh_end_images || [],
+          output_images: data.output_images || [],
+          output_texture: data.output_texture,
+          notes: data.notes
+        }
+
+        const { error } = await supabase
+          .from('SB_Dewatering')
+          .update(updatePayload)
+          .eq('dewatering_id', id)
+
+        if (error) throw error
+
+        console.log('✅ Dewatering process completed successfully')
+
+        await this.fetchProcesses(true)
+        return { success: true }
+      } catch (err) {
+        console.error('❌ Complete dewatering error:', err)
+        return { success: false, error: err.message }
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async fetchMaterialsForProcess(dewateringId) {
+      try {
+        const supabase = useSupabaseClient()
+        const { data, error } = await supabase
+          .from('SB_Material_Dewatering')
+          .select(`used_id, material_id, container_number, container_content, qty, material_images, SB_Material (material_name)`)
+          .eq('dewatering_id', dewateringId)
+          .order('container_number', { ascending: true })
+
+        if (error) throw error
+
+        const materials = (data || []).map(m => ({
+          used_id: m.used_id,
+          material_id: m.material_id,
+          material_name: m.SB_Material?.material_name || 'Unknown',
+          container_number: m.container_number,
+          container_content: m.container_content || '',
+          qty: parseFloat(m.qty) || 0,
+          material_images: m.material_images
+        }))
+
+        const processIndex = this.processes.findIndex(p => p.id === dewateringId)
+        if (processIndex !== -1) {
+          this.processes[processIndex].materials = materials
+        }
+
+        return materials
+      } catch (err) {
+        console.error('❌ Fetch materials dewatering error:', err)
+        return []
+      }
+    },
+
+    async saveMaterialsUsed(dewateringId, materials) {
+      this.loading = true
+      try {
+        const supabase = useSupabaseClient()
+
+        const { error: deleteError } = await supabase
+          .from('SB_Material_Dewatering')
+          .delete()
+          .eq('dewatering_id', dewateringId)
+
+        if (deleteError) throw deleteError
+
+        if (materials.length > 0) {
+          const payload = materials.map(m => ({
+            dewatering_id: dewateringId,
+            material_id: m.material_id,
+            container_number: m.container_number,
+            container_content: m.container_content || '',
+            qty: parseFloat(m.qty),
+            material_images: m.material_images || []
+          }))
+
+          const { error: insertError } = await supabase
+            .from('SB_Material_Dewatering')
+            .insert(payload)
+
+          if (insertError) throw insertError
+        }
+
+        const totalInput = materials.reduce((sum, m) => sum + (parseFloat(m.qty) || 0), 0)
+
+        const { error: updateError } = await supabase
+          .from('SB_Dewatering')
+          .update({ input_amount_kg: totalInput })
+          .eq('dewatering_id', dewateringId)
+
+        if (updateError) throw updateError
+
+        await this.fetchProcesses(true)
+        return { success: true }
+      } catch (err) {
+        console.error('❌ Save materials dewatering error:', err)
+        return { success: false, error: err.message }
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async updateProcessInputAmount(dewateringId, inputAmount) {
+      try {
+        const processIndex = this.processes.findIndex(p => p.id === dewateringId)
+        if (processIndex !== -1) {
+          this.processes[processIndex].input_amount = inputAmount
+          this.calculateStatistics()
+          return true
+        } else {
+          await this.fetchProcesses(true)
+          return true
+        }
+      } catch (err) {
+        return false
+      }
+    },
+
+    calculateStatistics() {
+      this.statistics = {
+        totalProcesses: this.processes.length,
+        activeProcesses: this.processes.filter(p => p.status === 'in_progress' || p.status === 'created').length,
+        totalCompleted: this.processes.filter(p => p.status === 'completed').length,
+        totalOutput: this.processes
+          .filter(p => p.status === 'completed')
+          .reduce((sum, p) => sum + (parseFloat(p.output_amount) || 0), 0)
+      }
+    }
+  }
+})

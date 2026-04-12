@@ -388,6 +388,35 @@ const handleCameraGalleryFileChange = async (event) => {
   }
 }
 
+// =============================
+// IMAGE COMPRESSION
+// =============================
+const compressImage = (file) => {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      const MAX_WIDTH = 1280
+      const ratio = Math.min(1, MAX_WIDTH / img.width)
+      canvas.width = img.width * ratio
+      canvas.height = img.height * ratio
+      const ctx = canvas.getContext('2d')
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      URL.revokeObjectURL(url)
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob)
+        else reject(new Error('Kompresi gagal'))
+      }, 'image/jpeg', 0.7)
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error('Gagal load gambar'))
+    }
+    img.src = url
+  })
+}
+
 const processFile = async (file) => {
   if (uploadedImages.value.length >= props.maxImages) {
     return
@@ -396,12 +425,23 @@ const processFile = async (file) => {
   isUploading.value = true
   
   try {
-    const preview = URL.createObjectURL(file)
+    // Kompres semua foto (galeri maupun kamera) ke JPEG 70% maks 1280px
+    // agar konsisten dan menghindari "Failed to fetch" pada foto dari Marki
+    const compressedBlob = await compressImage(file)
+    const compressedFile = new File(
+      [compressedBlob],
+      file.name.replace(/\.[^.]+$/, '.jpg'),
+      { type: 'image/jpeg' }
+    )
+
+    console.log('Ukuran file setelah kompresi:', (compressedFile.size / 1024 / 1024).toFixed(2), 'MB')
+
+    const preview = URL.createObjectURL(compressedFile)
     
     const imageData = {
-      file: file,
+      file: compressedFile,
       preview: preview,
-      name: file.name
+      name: compressedFile.name
     }
     
     uploadedImages.value.push(imageData)

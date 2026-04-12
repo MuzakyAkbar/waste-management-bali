@@ -1,4 +1,4 @@
-<!-- components/layout/Sidebar.vue - UPDATED -->
+<!-- components/layout/Sidebar.vue -->
 <template>
   <div>
     <Transition name="fade">
@@ -29,7 +29,7 @@
         </div>
         <div v-else class="w-full flex justify-center">
           <div class="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
-             <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
           </div>
@@ -50,7 +50,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
           </svg>
         </button>
-        
+
         <button
           v-if="isMobile"
           @click="closeSidebar"
@@ -62,25 +62,43 @@
         </button>
       </div>
 
-      <nav class="p-4 space-y-1 overflow-y-auto h-[calc(100vh-8rem)]">
-        <template v-for="item in navigationItems" :key="item.name">
+      <!-- Role Badge -->
+      <div v-if="!collapsed" class="px-4 py-2 border-b border-gray-100 bg-gray-50">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 text-xs font-bold">
+            {{ userInitial }}
+          </div>
+          <div class="min-w-0">
+            <p class="text-xs font-semibold text-gray-700 truncate">{{ currentUser?.username || 'User' }}</p>
+            <span
+              class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+              :class="roleBadgeClass"
+            >
+              {{ currentUser?.role || 'user' }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <nav class="p-4 space-y-1 overflow-y-auto h-[calc(100vh-10rem)]">
+        <template v-for="item in filteredNavigationItems" :key="item.name">
           <!-- Regular Menu Item -->
           <NuxtLink
             v-if="!item.soon && !item.children"
             :to="item.to"
             class="flex items-center px-3 py-2.5 rounded-lg transition-colors group"
-            :class="isActive(item.to) 
-              ? 'bg-primary-50 text-primary-600 font-medium' 
+            :class="isActive(item.to)
+              ? 'bg-primary-50 text-primary-600 font-medium'
               : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'"
             @click="handleLinkClick"
             :title="collapsed ? item.name : ''"
           >
-            <component 
-              :is="item.icon" 
-              class="w-5 h-5 flex-shrink-0 transition-colors"
-              :class="isActive(item.to) ? 'text-primary-600' : 'text-gray-400 group-hover:text-gray-500'" 
-            />
-            <span 
+            <span class="w-5 h-5 flex-shrink-0 transition-colors flex items-center justify-center"
+              :class="isActive(item.to) ? 'text-primary-600' : 'text-gray-400 group-hover:text-gray-500'"
+            >
+              <component :is="item.icon" class="w-5 h-5" />
+            </span>
+            <span
               class="ml-3 whitespace-nowrap transition-opacity duration-300"
               :class="collapsed ? 'opacity-0 w-0 hidden' : 'opacity-100'"
             >
@@ -93,30 +111,30 @@
             <button
               @click="toggleSubmenu(item.name)"
               class="flex items-center justify-between w-full px-3 py-2.5 rounded-lg transition-colors group"
-              :class="isParentActive(item) 
-                ? 'bg-primary-50 text-primary-600 font-medium' 
+              :class="isParentActive(item)
+                ? 'bg-primary-50 text-primary-600 font-medium'
                 : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'"
               :title="collapsed ? item.name : ''"
             >
               <div class="flex items-center">
-                <component 
-                  :is="item.icon" 
-                  class="w-5 h-5 flex-shrink-0 transition-colors"
-                  :class="isParentActive(item) ? 'text-primary-600' : 'text-gray-400 group-hover:text-gray-500'" 
-                />
-                <span 
+                <span class="w-5 h-5 flex-shrink-0 transition-colors flex items-center justify-center"
+                  :class="isParentActive(item) ? 'text-primary-600' : 'text-gray-400 group-hover:text-gray-500'"
+                >
+                  <component :is="item.icon" class="w-5 h-5" />
+                </span>
+                <span
                   class="ml-3 whitespace-nowrap transition-opacity duration-300"
                   :class="collapsed ? 'opacity-0 w-0 hidden' : 'opacity-100'"
                 >
                   {{ item.name }}
                 </span>
               </div>
-              <svg 
+              <svg
                 v-if="!collapsed"
                 class="w-4 h-4 transition-transform duration-200"
                 :class="{ 'rotate-180': openSubmenus.includes(item.name) }"
-                fill="none" 
-                stroke="currentColor" 
+                fill="none"
+                stroke="currentColor"
                 viewBox="0 0 24 24"
               >
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
@@ -149,18 +167,17 @@
             class="flex items-center px-3 py-2.5 rounded-lg text-gray-400 cursor-not-allowed group relative"
             :title="collapsed ? item.name + ' (Soon)' : ''"
           >
-            <component 
-              :is="item.icon" 
-              class="w-5 h-5 flex-shrink-0 text-gray-300" 
-            />
-            <span 
+            <span class="w-5 h-5 flex-shrink-0 flex items-center justify-center">
+              <component :is="item.icon" class="w-5 h-5 text-gray-300" />
+            </span>
+            <span
               class="ml-3 whitespace-nowrap flex-1"
               :class="collapsed ? 'opacity-0 w-0 hidden' : 'opacity-100'"
             >
               {{ item.name }}
             </span>
-            <span 
-              v-if="!collapsed" 
+            <span
+              v-if="!collapsed"
               class="bg-gray-100 text-gray-500 text-[10px] font-semibold px-2 py-0.5 rounded-full"
             >
               SOON
@@ -178,7 +195,7 @@
           <svg class="w-5 h-5 flex-shrink-0 text-gray-400 group-hover:text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
           </svg>
-          <span 
+          <span
             class="ml-3 whitespace-nowrap font-medium"
             :class="collapsed ? 'opacity-0 w-0 hidden' : 'opacity-100'"
           >
@@ -191,14 +208,20 @@
 </template>
 
 <script setup>
-import { 
-  HomeIcon, 
-  SwatchIcon,
-  CubeIcon,
+import {
+  HomeModernIcon,
+  ArrowPathIcon,
+  ArchiveBoxIcon,
   MapPinIcon,
-  BoltIcon, // For RecapSummary
-  Cog6ToothIcon
+  Cog8ToothIcon,
+  ChartBarSquareIcon,
+  FunnelIcon,
+  DocumentArrowDownIcon
 } from '@heroicons/vue/24/outline'
+
+const RecapSummaryIcon = ChartBarSquareIcon
+const DewateringIcon = FunnelIcon
+const MaterialInputIcon = DocumentArrowDownIcon
 
 const props = defineProps({
   modelValue: {
@@ -212,64 +235,102 @@ const route = useRoute()
 const authStore = useAuthStore()
 const router = useRouter()
 
-// Icon for RecapSummary (using SVG component)
-const RecapSummaryIcon = {
-  template: `
-    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-    </svg>
-  `
-}
+// ===== ROLE-BASED ACCESS =====
+const currentUser = computed(() => {
+  try {
+    const raw = localStorage.getItem('user')
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+})
 
-// --- DEFINISI NAVIGASI ---
+const userRole = computed(() => {
+  const role = currentUser.value?.role || ''
+  // Normalize casing
+  return role.toLowerCase()
+})
+
+const isAdminOrSuper = computed(() =>
+  ['superadmin', 'admin'].includes(userRole.value)
+)
+
+const userInitial = computed(() => {
+  const name = currentUser.value?.username || currentUser.value?.email || 'U'
+  return name.charAt(0).toUpperCase()
+})
+
+const roleBadgeClass = computed(() => {
+  const role = userRole.value
+  if (role === 'superadmin') return 'bg-purple-100 text-purple-700'
+  if (role === 'admin') return 'bg-blue-100 text-blue-700'
+  if (role === 'supervisor') return 'bg-amber-100 text-amber-700'
+  return 'bg-gray-100 text-gray-600'
+})
+
+// All navigation items with role restrictions
 const navigationItems = [
-  { 
-    name: 'Dashboard', 
-    to: '/dashboard', 
-    icon: HomeIcon,
-    soon: false
+  {
+    name: 'Dashboard',
+    to: '/dashboard',
+    icon: HomeModernIcon,
+    soon: false,
+    roles: null // accessible by all
   },
-  { 
-    name: 'Processing', 
-    to: '/processing', 
-    icon: SwatchIcon, 
-    soon: false
+  {
+    name: 'Processing',
+    to: '/processing',
+    icon: ArrowPathIcon,
+    soon: false,
+    roles: null // accessible by all
   },
-  { 
-    name: 'Materials', 
-    to: '/materials', 
-    icon: CubeIcon, 
-    soon: false
+  {
+    name: 'Material Input',
+    to: '/materials/input',
+    icon: MaterialInputIcon,
+    soon: false,
+    roles: null // accessible by all
   },
-  { 
-    name: 'Locations', 
-    to: '/locations', 
-    icon: MapPinIcon, 
-    soon: false
+  {
+    name: 'Dewatering',
+    to: '/dewatering',
+    icon: DewateringIcon,
+    soon: false,
+    roles: null // accessible by all
   },
-  // ✅ NEW: RecapSummary Menu with Submenu
+  {
+    name: 'Master Materials',
+    to: '/materials',
+    icon: ArchiveBoxIcon,
+    soon: false,
+    roles: ['superadmin', 'admin'] // restricted
+  },
+  {
+    name: 'Locations',
+    to: '/locations',
+    icon: MapPinIcon,
+    soon: false,
+    roles: ['superadmin', 'admin'] // restricted
+  },
   {
     name: 'RecapSummary',
     icon: RecapSummaryIcon,
     soon: false,
+    roles: ['superadmin', 'admin', 'supervisor'], // restricted
     children: [
-      {
-        name: 'Recap',
-        to: '/RecapSummary/recap'
-      },
-      {
-        name: 'Monthly Summary',
-        to: '/RecapSummary/summary'
-      }
+      { name: 'Recap', to: '/RecapSummary/recap' },
+      { name: 'Monthly Summary', to: '/RecapSummary/summary' }
     ]
-  },
-  { 
-    name: 'Settings', 
-    to: '/settings', 
-    icon: Cog6ToothIcon, 
-    soon: true 
   }
 ]
+
+// Filter items based on role
+const filteredNavigationItems = computed(() => {
+  return navigationItems.filter(item => {
+    if (!item.roles) return true // no restriction
+    return item.roles.includes(userRole.value)
+  })
+})
 
 // --- LOGIC ---
 const isOpen = computed({
@@ -279,9 +340,10 @@ const isOpen = computed({
 
 const collapsed = ref(false)
 const isMobile = ref(false)
-const openSubmenus = ref(['RecapSummary']) // Default open RecapSummary submenu
+const openSubmenus = ref(['RecapSummary'])
 
 const isActive = (path) => {
+  if (!path) return false
   if (path === '/dashboard' && route.path === '/dashboard') return true
   if (path !== '/dashboard' && route.path.startsWith(path)) return true
   return false
@@ -294,7 +356,6 @@ const isParentActive = (item) => {
 
 const toggleSubmenu = (name) => {
   if (collapsed.value) return
-  
   const index = openSubmenus.value.indexOf(name)
   if (index > -1) {
     openSubmenus.value.splice(index, 1)

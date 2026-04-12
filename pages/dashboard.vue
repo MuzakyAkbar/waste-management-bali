@@ -11,16 +11,33 @@
             </div>
             <h1 class="text-xl font-bold text-gray-800">Waste Management Bali</h1>
           </div>
+
+          <!-- User info in navbar -->
+          <div class="flex items-center gap-3">
+            <div class="text-right hidden sm:block">
+              <p class="text-sm font-semibold text-gray-700">{{ currentUser?.username || 'User' }}</p>
+              <span
+                class="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                :class="roleBadgeClass"
+              >
+                {{ currentUser?.role || 'user' }}
+              </span>
+            </div>
+            <div class="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold text-sm">
+              {{ userInitial }}
+            </div>
+          </div>
         </div>
       </div>
     </nav>
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
       <div class="mb-8">
-        <h2 class="text-3xl font-bold text-gray-900 mb-2">Welcome back! 👋</h2>
+        <h2 class="text-3xl font-bold text-gray-900 mb-2">Welcome back, {{ currentUser?.username || 'User' }}! 👋</h2>
         <p class="text-gray-600">Here's what's happening with your waste management operations today.</p>
       </div>
 
+      <!-- Stats Cards -->
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div class="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
           <div class="flex items-center justify-between mb-4">
@@ -30,9 +47,7 @@
               </svg>
             </div>
           </div>
-          <h3 class="text-3xl font-bold text-gray-900 mb-1">
-            {{ totalProcesses }}
-          </h3>
+          <h3 class="text-3xl font-bold text-gray-900 mb-1">{{ totalProcesses }}</h3>
           <p class="text-sm text-gray-500 font-medium">Total Processes</p>
         </div>
 
@@ -44,9 +59,7 @@
               </svg>
             </div>
           </div>
-          <h3 class="text-3xl font-bold text-gray-900 mb-1">
-            {{ activeProcesses }}
-          </h3>
+          <h3 class="text-3xl font-bold text-gray-900 mb-1">{{ activeProcesses }}</h3>
           <p class="text-sm text-gray-500 font-medium">In Progress</p>
         </div>
 
@@ -58,9 +71,7 @@
               </svg>
             </div>
           </div>
-          <h3 class="text-3xl font-bold text-gray-900 mb-1">
-            {{ totalCompleted }}
-          </h3>
+          <h3 class="text-3xl font-bold text-gray-900 mb-1">{{ totalCompleted }}</h3>
           <p class="text-sm text-gray-500 font-medium">Completed</p>
         </div>
 
@@ -72,16 +83,16 @@
               </svg>
             </div>
           </div>
-          <h3 class="text-3xl font-bold text-gray-900 mb-1">
-            {{ totalOutputFormatted }}
-          </h3>
+          <h3 class="text-3xl font-bold text-gray-900 mb-1">{{ totalOutputFormatted }}</h3>
           <p class="text-sm text-gray-500 font-medium">Output (kg)</p>
         </div>
       </div>
 
+      <!-- Quick Actions -->
       <h3 class="text-lg font-bold text-gray-900 mb-4">Quick Actions</h3>
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+        <!-- Waste Processing — all roles -->
         <div @click="router.push('/processing')" class="group bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all cursor-pointer">
           <div class="w-12 h-12 bg-primary-50 text-primary-600 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -92,17 +103,49 @@
           <p class="text-sm text-gray-500">Manage input, processing, and output data</p>
         </div>
 
-        <div @click="router.push('/materials')" class="group bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all cursor-pointer">
+        <!-- Dewatering — all roles -->
+        <div @click="router.push('/dewatering')" class="group bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all cursor-pointer">
+          <div class="w-12 h-12 bg-cyan-50 text-cyan-600 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+            </svg>
+          </div>
+          <h4 class="text-lg font-bold text-gray-900 mb-1 group-hover:text-cyan-600 transition-colors">Dewatering</h4>
+          <p class="text-sm text-gray-500">Manage dewatering activities and output data</p>
+        </div>
+
+        <!-- Material Input — all roles -->
+        <div @click="router.push('/materials/input')" class="group bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all cursor-pointer">
+          <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+          <h4 class="text-lg font-bold text-gray-900 mb-1 group-hover:text-emerald-600 transition-colors">Material Input</h4>
+          <p class="text-sm text-gray-500">Record incoming material from locations</p>
+        </div>
+
+        <!-- Master Materials — SuperAdmin & Admin only -->
+        <div
+          v-if="isAdminOrSuper"
+          @click="router.push('/materials')"
+          class="group bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all cursor-pointer"
+        >
           <div class="w-12 h-12 bg-accent-50 text-accent-600 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
             </svg>
           </div>
-          <h4 class="text-lg font-bold text-gray-900 mb-1 group-hover:text-accent-600 transition-colors">Materials</h4>
+          <h4 class="text-lg font-bold text-gray-900 mb-1 group-hover:text-accent-600 transition-colors">Master Materials</h4>
           <p class="text-sm text-gray-500">Manage master data for waste materials</p>
         </div>
 
-        <div @click="router.push('/locations')" class="group bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all cursor-pointer">
+        <!-- Locations — SuperAdmin & Admin only -->
+        <div
+          v-if="isAdminOrSuper"
+          @click="router.push('/locations')"
+          class="group bg-white p-6 rounded-xl border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all cursor-pointer"
+        >
           <div class="w-12 h-12 bg-green-50 text-green-600 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -131,7 +174,39 @@ const authStore = useAuthStore()
 const processingStore = useProcessingStore()
 const router = useRouter()
 
-// Computed properties untuk menghindari error di template
+// ===== ROLE-BASED ACCESS =====
+const currentUser = computed(() => {
+  try {
+    const raw = localStorage.getItem('user')
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+})
+
+const userRole = computed(() => {
+  const role = currentUser.value?.role || ''
+  return role.toLowerCase()
+})
+
+const isAdminOrSuper = computed(() =>
+  ['superadmin', 'admin'].includes(userRole.value)
+)
+
+const userInitial = computed(() => {
+  const name = currentUser.value?.username || currentUser.value?.email || 'U'
+  return name.charAt(0).toUpperCase()
+})
+
+const roleBadgeClass = computed(() => {
+  const role = userRole.value
+  if (role === 'superadmin') return 'bg-purple-100 text-purple-700'
+  if (role === 'admin') return 'bg-blue-100 text-blue-700'
+  if (role === 'supervisor') return 'bg-amber-100 text-amber-700'
+  return 'bg-gray-100 text-gray-600'
+})
+
+// ===== STATS =====
 const totalProcesses = computed(() => processingStore.statistics?.totalProcesses || 0)
 const activeProcesses = computed(() => processingStore.statistics?.activeProcesses || 0)
 const totalCompleted = computed(() => processingStore.statistics?.totalCompleted || 0)
